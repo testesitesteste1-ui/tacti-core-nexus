@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,9 @@ import {
   Flag,
   CheckCircle2
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { ref, onValue, set } from "firebase/database";
+import { database } from "@/lib/firebase";
 
 interface Objective {
   id: string;
@@ -54,6 +58,38 @@ const mockObjectives: Objective[] = [
 ];
 
 export const StrategyPanel = () => {
+  const { user } = useAuth();
+  const [objectives, setObjectives] = useState<Objective[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load objectives from Firebase
+  useEffect(() => {
+    if (!user) return;
+
+    const objectivesRef = ref(database, `users/${user.uid}/objectives`);
+    const unsubscribe = onValue(objectivesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const objectivesArray = Object.entries(data).map(([id, objective]: [string, any]) => ({
+          id,
+          ...objective
+        }));
+        setObjectives(objectivesArray);
+      } else {
+        // Initialize with default objectives
+        const defaultObjectives: Record<string, Objective> = {};
+        mockObjectives.forEach(objective => {
+          defaultObjectives[objective.id] = objective;
+        });
+        set(objectivesRef, defaultObjectives);
+        setObjectives(mockObjectives);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   const getTypeColor = (type: Objective["type"]) => {
     switch (type) {
       case "annual":
@@ -76,56 +112,79 @@ export const StrategyPanel = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background tactical-grid flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground font-tactical uppercase">Carregando estratégias...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background tactical-grid">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="border-b border-border pb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Target className="w-8 h-8 text-primary glow-primary" />
-            <h1 className="text-4xl font-bold text-foreground">STRATEGIC COMMAND</h1>
+        <div className="border-b border-border pb-4 md:pb-6">
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <Target className="w-6 h-6 md:w-8 md:h-8 text-primary glow-primary" />
+            <h1 className="text-2xl md:text-4xl font-bold text-foreground">COMANDO ESTRATÉGICO</h1>
           </div>
-          <p className="text-muted-foreground">Long-term Objectives • Tactical Planning</p>
+          <p className="text-xs md:text-sm text-muted-foreground">Objetivos de Longo Prazo • Planejamento Tático</p>
         </div>
 
         {/* Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-card border-accent/50 p-6">
+          <Card className="bg-card border-accent/50 p-4 md:p-6">
             <div className="flex items-center gap-2 mb-2">
-              <Flag className="w-5 h-5 text-accent" />
-              <span className="text-sm text-muted-foreground uppercase">Annual Goals</span>
+              <Flag className="w-4 h-4 md:w-5 md:h-5 text-accent" />
+              <span className="text-xs md:text-sm text-muted-foreground uppercase">Metas Anuais</span>
             </div>
-            <p className="text-3xl font-tactical font-bold text-accent">1</p>
-            <p className="text-xs text-muted-foreground mt-1">34% average progress</p>
+            <p className="text-2xl md:text-3xl font-tactical font-bold text-accent">
+              {objectives.filter(o => o.type === "annual").length}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {Math.round(objectives.filter(o => o.type === "annual").reduce((acc, o) => acc + o.progress, 0) / Math.max(objectives.filter(o => o.type === "annual").length, 1))}% progresso médio
+            </p>
           </Card>
 
-          <Card className="bg-card border-primary/50 p-6">
+          <Card className="bg-card border-primary/50 p-4 md:p-6">
             <div className="flex items-center gap-2 mb-2">
-              <Calendar className="w-5 h-5 text-primary" />
-              <span className="text-sm text-muted-foreground uppercase">Monthly Goals</span>
+              <Calendar className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+              <span className="text-xs md:text-sm text-muted-foreground uppercase">Metas Mensais</span>
             </div>
-            <p className="text-3xl font-tactical font-bold text-primary">2</p>
-            <p className="text-xs text-muted-foreground mt-1">73% average progress</p>
+            <p className="text-2xl md:text-3xl font-tactical font-bold text-primary">
+              {objectives.filter(o => o.type === "monthly").length}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {Math.round(objectives.filter(o => o.type === "monthly").reduce((acc, o) => acc + o.progress, 0) / Math.max(objectives.filter(o => o.type === "monthly").length, 1))}% progresso médio
+            </p>
           </Card>
 
-          <Card className="bg-card border-success/50 p-6">
+          <Card className="bg-card border-success/50 p-4 md:p-6">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-5 h-5 text-success" />
-              <span className="text-sm text-muted-foreground uppercase">Weekly Goals</span>
+              <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-success" />
+              <span className="text-xs md:text-sm text-muted-foreground uppercase">Metas Semanais</span>
             </div>
-            <p className="text-3xl font-tactical font-bold text-success">1</p>
-            <p className="text-xs text-muted-foreground mt-1">100% complete</p>
+            <p className="text-2xl md:text-3xl font-tactical font-bold text-success">
+              {objectives.filter(o => o.type === "weekly").length}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {Math.round(objectives.filter(o => o.type === "weekly").reduce((acc, o) => acc + o.progress, 0) / Math.max(objectives.filter(o => o.type === "weekly").length, 1))}% progresso médio
+            </p>
           </Card>
         </div>
 
         {/* Objectives List */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <Target className="w-5 h-5 text-primary" />
-            ACTIVE OBJECTIVES
+          <h2 className="text-base md:text-lg font-semibold text-foreground flex items-center gap-2">
+            <Target className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+            OBJETIVOS ATIVOS
           </h2>
 
-          {mockObjectives.map((objective) => (
+          {objectives.map((objective) => (
             <Card 
               key={objective.id}
               className="bg-card border-border p-6 hover:border-primary/50 transition-all duration-300"
@@ -133,7 +192,7 @@ export const StrategyPanel = () => {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-xl font-bold text-foreground">{objective.title}</h3>
+                    <h3 className="text-base md:text-xl font-bold text-foreground">{objective.title}</h3>
                   </div>
                   <Badge 
                     variant="outline" 
@@ -144,7 +203,7 @@ export const StrategyPanel = () => {
                   </Badge>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-tactical font-bold text-primary">
+                  <p className="text-2xl md:text-3xl font-tactical font-bold text-primary">
                     {objective.progress}%
                   </p>
                 </div>
@@ -162,14 +221,14 @@ export const StrategyPanel = () => {
 
               {/* Milestones */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-4 h-4" />
+                <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
+                  <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4" />
                   <span>
-                    {objective.completed}/{objective.milestones} milestones
+                    {objective.completed}/{objective.milestones} marcos
                   </span>
                 </div>
-                <Button size="sm" variant="outline" className="border-primary/30 text-primary">
-                  Update Progress
+                <Button size="sm" variant="outline" className="border-primary/30 text-primary text-xs">
+                  Atualizar
                 </Button>
               </div>
             </Card>
@@ -177,8 +236,8 @@ export const StrategyPanel = () => {
         </div>
 
         {/* Add New Objective */}
-        <Button className="w-full bg-primary hover:bg-primary/80 text-primary-foreground font-semibold h-12">
-          + NEW STRATEGIC OBJECTIVE
+        <Button className="w-full bg-primary hover:bg-primary/80 text-primary-foreground font-semibold h-10 md:h-12 text-xs md:text-base">
+          + NOVO OBJETIVO ESTRATÉGICO
         </Button>
       </div>
     </div>

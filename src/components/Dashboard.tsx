@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Target, Zap, TrendingUp, Brain, Award, Activity } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { ref, onValue, set } from "firebase/database";
+import { database } from "@/lib/firebase";
 
 interface DailyMetrics {
   mood: number;
@@ -11,6 +14,7 @@ interface DailyMetrics {
 }
 
 export const Dashboard = () => {
+  const { user } = useAuth();
   const [metrics, setMetrics] = useState<DailyMetrics>({
     mood: 75,
     energy: 80,
@@ -27,10 +31,52 @@ export const Dashboard = () => {
   ];
 
   const [currentQuote, setCurrentQuote] = useState(quotes[0]);
+  const [stats, setStats] = useState({
+    activeMissions: 7,
+    completedThisWeek: 3,
+    weeklyScore: 84,
+    level: "EXECUTOR"
+  });
 
   useEffect(() => {
     setCurrentQuote(quotes[Math.floor(Math.random() * quotes.length)]);
   }, []);
+
+  // Load metrics from Firebase
+  useEffect(() => {
+    if (!user) return;
+
+    const metricsRef = ref(database, `users/${user.uid}/metrics`);
+    const unsubscribe = onValue(metricsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setMetrics(data);
+      } else {
+        // Initialize with default values
+        set(metricsRef, metrics);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Load stats from Firebase
+  useEffect(() => {
+    if (!user) return;
+
+    const statsRef = ref(database, `users/${user.uid}/stats`);
+    const unsubscribe = onValue(statsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setStats(data);
+      } else {
+        // Initialize with default values
+        set(statsRef, stats);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const MetricCard = ({ 
     label, 
@@ -61,20 +107,20 @@ export const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background tactical-grid">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="border-b border-border pb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Target className="w-8 h-8 text-primary glow-primary" />
-            <h1 className="text-4xl font-bold text-foreground">TACTICAL HQ</h1>
+        <div className="border-b border-border pb-4 md:pb-6">
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <Target className="w-6 h-6 md:w-8 md:h-8 text-primary glow-primary" />
+            <h1 className="text-2xl md:text-4xl font-bold text-foreground">TACTICAL HQ</h1>
           </div>
-          <p className="text-muted-foreground">Command Center • Personal Operations Dashboard</p>
+          <p className="text-xs md:text-sm text-muted-foreground">Command Center • Personal Operations Dashboard</p>
         </div>
 
         {/* Quote Section */}
-        <Card className="bg-gradient-to-br from-card to-muted border-primary/30 p-8 relative overflow-hidden">
+        <Card className="bg-gradient-to-br from-card to-muted border-primary/30 p-4 md:p-8 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-success"></div>
-          <blockquote className="text-xl md:text-2xl font-light text-foreground italic">
+          <blockquote className="text-base md:text-xl lg:text-2xl font-light text-foreground italic">
             "{currentQuote}"
           </blockquote>
         </Card>
@@ -100,8 +146,8 @@ export const Dashboard = () => {
               <span className="text-sm text-muted-foreground uppercase">Active Missions</span>
               <Award className="w-5 h-5 text-success" />
             </div>
-            <p className="text-4xl font-tactical font-bold text-success glow-success">7</p>
-            <p className="text-xs text-muted-foreground mt-2">3 completed this week</p>
+            <p className="text-4xl font-tactical font-bold text-success glow-success">{stats.activeMissions}</p>
+            <p className="text-xs text-muted-foreground mt-2">{stats.completedThisWeek} completed this week</p>
           </Card>
 
           <Card className="bg-card border-border p-6 hover:border-primary/50 transition-all">
@@ -109,8 +155,8 @@ export const Dashboard = () => {
               <span className="text-sm text-muted-foreground uppercase">Weekly Score</span>
               <TrendingUp className="w-5 h-5 text-primary" />
             </div>
-            <p className="text-4xl font-tactical font-bold text-primary glow-primary">84</p>
-            <p className="text-xs text-muted-foreground mt-2">↑ 12% from last week</p>
+            <p className="text-4xl font-tactical font-bold text-primary glow-primary">{stats.weeklyScore}</p>
+            <p className="text-xs text-muted-foreground mt-2">↑ 12% desde a última semana</p>
           </Card>
 
           <Card className="bg-card border-border p-6 hover:border-accent/50 transition-all">
@@ -118,21 +164,21 @@ export const Dashboard = () => {
               <span className="text-sm text-muted-foreground uppercase">Current Level</span>
               <Target className="w-5 h-5 text-accent" />
             </div>
-            <p className="text-4xl font-tactical font-bold text-accent glow-accent">EXECUTOR</p>
-            <p className="text-xs text-muted-foreground mt-2">Next: Strategist (78% progress)</p>
+            <p className="text-2xl md:text-4xl font-tactical font-bold text-accent glow-accent">{stats.level}</p>
+            <p className="text-xs text-muted-foreground mt-2">Próximo: Strategist (78%)</p>
           </Card>
         </div>
 
         {/* Quick Actions */}
-        <div className="flex flex-wrap gap-3">
-          <Button className="bg-primary hover:bg-primary/80 text-primary-foreground font-semibold">
-            New Mission
+        <div className="flex flex-wrap gap-2 md:gap-3">
+          <Button className="bg-primary hover:bg-primary/80 text-primary-foreground font-semibold text-xs md:text-sm">
+            Nova Missão
           </Button>
-          <Button variant="outline" className="border-primary text-primary hover:bg-primary/10">
-            View All Operations
+          <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 text-xs md:text-sm">
+            Ver Operações
           </Button>
-          <Button variant="outline" className="border-success text-success hover:bg-success/10">
-            Weekly Analysis
+          <Button variant="outline" className="border-success text-success hover:bg-success/10 text-xs md:text-sm">
+            Análise Semanal
           </Button>
         </div>
       </div>

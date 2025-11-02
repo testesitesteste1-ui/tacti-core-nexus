@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,10 @@ import {
   Heart,
   Briefcase
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { ref, onValue, set } from "firebase/database";
+import { database } from "@/lib/firebase";
+import { toast } from "sonner";
 
 type MissionStatus = "active" | "completed" | "aborted";
 type MissionTag = "personal" | "financial" | "physical" | "strategic";
@@ -75,8 +79,38 @@ const mockMissions: Mission[] = [
 ];
 
 export const MissionsPanel = () => {
-  const [missions, setMissions] = useState<Mission[]>(mockMissions);
+  const { user } = useAuth();
+  const [missions, setMissions] = useState<Mission[]>([]);
   const [filter, setFilter] = useState<"all" | MissionStatus>("all");
+  const [loading, setLoading] = useState(true);
+
+  // Load missions from Firebase
+  useEffect(() => {
+    if (!user) return;
+
+    const missionsRef = ref(database, `users/${user.uid}/missions`);
+    const unsubscribe = onValue(missionsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const missionsArray = Object.entries(data).map(([id, mission]: [string, any]) => ({
+          id,
+          ...mission
+        }));
+        setMissions(missionsArray);
+      } else {
+        // Initialize with default missions
+        const defaultMissions: Record<string, Mission> = {};
+        mockMissions.forEach(mission => {
+          defaultMissions[mission.id] = mission;
+        });
+        set(missionsRef, defaultMissions);
+        setMissions(mockMissions);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const getStatusIcon = (status: MissionStatus) => {
     switch (status) {
@@ -119,40 +153,54 @@ export const MissionsPanel = () => {
     ? missions 
     : missions.filter(m => m.status === filter);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background tactical-grid flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground font-tactical uppercase">Carregando missões...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background tactical-grid">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="border-b border-border pb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Target className="w-8 h-8 text-primary glow-primary" />
-            <h1 className="text-4xl font-bold text-foreground">MISSION CONTROL</h1>
+        <div className="border-b border-border pb-4 md:pb-6">
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <Target className="w-6 h-6 md:w-8 md:h-8 text-primary glow-primary" />
+            <h1 className="text-2xl md:text-4xl font-bold text-foreground">MISSION CONTROL</h1>
           </div>
-          <p className="text-muted-foreground">Active Operations • Strategic Objectives</p>
+          <p className="text-xs md:text-sm text-muted-foreground">Active Operations • Strategic Objectives</p>
         </div>
 
         {/* Filters */}
         <div className="flex flex-wrap gap-2">
           <Button
+            size="sm"
             variant={filter === "all" ? "default" : "outline"}
             onClick={() => setFilter("all")}
-            className={filter === "all" ? "bg-primary" : "border-primary/30"}
+            className={`text-xs md:text-sm ${filter === "all" ? "bg-primary" : "border-primary/30"}`}
           >
-            All Missions
+            Todas
           </Button>
           <Button
+            size="sm"
             variant={filter === "active" ? "default" : "outline"}
             onClick={() => setFilter("active")}
-            className={filter === "active" ? "bg-primary" : "border-primary/30"}
+            className={`text-xs md:text-sm ${filter === "active" ? "bg-primary" : "border-primary/30"}`}
           >
-            Active
+            Ativas
           </Button>
           <Button
+            size="sm"
             variant={filter === "completed" ? "default" : "outline"}
             onClick={() => setFilter("completed")}
-            className={filter === "completed" ? "bg-success" : "border-success/30"}
+            className={`text-xs md:text-sm ${filter === "completed" ? "bg-success" : "border-success/30"}`}
           >
-            Completed
+            Concluídas
           </Button>
         </div>
 
@@ -165,14 +213,14 @@ export const MissionsPanel = () => {
             >
               {/* Mission Header */}
               <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
+              <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     {getStatusIcon(mission.status)}
-                    <h3 className="text-xl font-bold font-tactical text-foreground">
+                    <h3 className="text-base md:text-xl font-bold font-tactical text-foreground">
                       {mission.name}
                     </h3>
                   </div>
-                  <p className="text-sm text-muted-foreground">{mission.description}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">{mission.description}</p>
                 </div>
               </div>
 
@@ -244,11 +292,11 @@ export const MissionsPanel = () => {
 
               {/* Actions */}
               <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-                <Button size="sm" variant="outline" className="border-primary/30 text-primary">
-                  Update
+                <Button size="sm" variant="outline" className="border-primary/30 text-primary text-xs">
+                  Atualizar
                 </Button>
-                <Button size="sm" variant="outline" className="border-border">
-                  Debrief
+                <Button size="sm" variant="outline" className="border-border text-xs">
+                  Relatório
                 </Button>
               </div>
             </Card>
@@ -256,8 +304,8 @@ export const MissionsPanel = () => {
         </div>
 
         {/* Add New Mission */}
-        <Button className="w-full bg-primary hover:bg-primary/80 text-primary-foreground font-semibold h-12">
-          + NEW MISSION
+        <Button className="w-full bg-primary hover:bg-primary/80 text-primary-foreground font-semibold h-10 md:h-12 text-xs md:text-base">
+          + NOVA MISSÃO
         </Button>
       </div>
     </div>
