@@ -36,8 +36,11 @@ const ParkingSpotCard = ({ spot, isSelected, onSelect }: SpotCardProps) => {
     if (typeArray.includes('Vaga Motocicleta')) return '🏍️';
     if (typeArray.includes('Vaga Idoso')) return '👴';
     if (typeArray.includes('Vaga Pequena')) return '📦';
-    if (typeArray.includes('Vaga Comum')) return '🚗';
     if (typeArray.includes('Vaga Grande')) return '🚙';
+    // Priorizar ícones de cobertura para vagas comuns
+    if (spot.isCovered) return '🏠';
+    if (spot.isUncovered) return '☀️';
+    if (typeArray.includes('Vaga Comum')) return '🚗';
     return '🚗';
   };
 
@@ -129,9 +132,12 @@ export const InteractiveParkingMap = () => {
       const typeArray = Array.isArray(s.type) ? s.type : [s.type];
       return typeArray.includes('Vaga Pequena') || s.size === 'P';
     }),
+    'Vaga Coberta': currentFloorSpots.filter(s => s.isCovered === true),
+    'Vaga Descoberta': currentFloorSpots.filter(s => s.isUncovered === true),
     'Vaga Comum': currentFloorSpots.filter(s => {
       const typeArray = Array.isArray(s.type) ? s.type : [s.type];
-      return typeArray.includes('Vaga Comum');
+      // Excluir vagas cobertas/descobertas da categoria "Vaga Comum"
+      return typeArray.includes('Vaga Comum') && !s.isCovered && !s.isUncovered;
     }),
     'Vaga Grande': currentFloorSpots.filter(s => {
       const typeArray = Array.isArray(s.type) ? s.type : [s.type];
@@ -323,9 +329,10 @@ export const InteractiveParkingMap = () => {
                   <div className="w-4 h-3 bg-reserved rounded border"></div>
                   <span className="text-xs sm:text-sm">Reservada</span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs sm:text-sm">♿ PcD</span>
-                  <span className="text-xs sm:text-sm">🏠 Presa</span>
+                  <span className="text-xs sm:text-sm">🏠 Coberta</span>
+                  <span className="text-xs sm:text-sm">☀️ Descoberta</span>
                   <span className="text-xs sm:text-sm">👴 Idoso</span>
                   <span className="text-xs sm:text-sm">📦 Pequena</span>
                   <span className="text-xs sm:text-sm">🚗 Comum</span>
@@ -355,11 +362,25 @@ export const InteractiveParkingMap = () => {
                   <div className="flex justify-between">
                     <span className="text-sm">Tipo:</span>
                     <div className="flex flex-wrap gap-1">
-                      {(Array.isArray(selectedSpot.type) ? selectedSpot.type : [selectedSpot.type]).map((type, index) => (
-                        <Badge key={index} variant={type === 'Vaga PcD' ? 'default' : 'outline'}>
-                          {type}
-                        </Badge>
-                      ))}
+                      {(Array.isArray(selectedSpot.type) ? selectedSpot.type : [selectedSpot.type])
+                        .filter(type => {
+                          // Não mostrar "Vaga Comum" se for coberta ou descoberta
+                          if ((selectedSpot.isCovered || selectedSpot.isUncovered) && type === 'Vaga Comum') {
+                            return false;
+                          }
+                          return true;
+                        })
+                        .map((type, index) => (
+                          <Badge key={index} variant={type === 'Vaga PcD' ? 'default' : 'outline'}>
+                            {type}
+                          </Badge>
+                        ))}
+                      {selectedSpot.isCovered && (
+                        <Badge variant="covered">Coberta</Badge>
+                      )}
+                      {selectedSpot.isUncovered && (
+                        <Badge variant="uncovered">Descoberta</Badge>
+                      )}
                     </div>
                   </div>
                   
