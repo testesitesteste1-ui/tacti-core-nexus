@@ -539,9 +539,21 @@ export const ReportsHistory = () => {
                             return sortedResults.map((result, index) => {
                               const spot = getSpotInfo(result.parkingSpotId);
                               const participant = participants.find(p => p.id === result.participantId);
-                              const spotTypesRaw = spot?.type ? (Array.isArray(spot.type) ? spot.type.join(', ') : spot.type) : 'N/A';
+                              
+                              // Filtrar tipos - não mostrar "Vaga Comum" se for coberta ou descoberta
+                              const typesArray = spot?.type 
+                                ? (Array.isArray(spot.type) ? spot.type : [spot.type])
+                                    .filter(type => {
+                                      if ((spot.isCovered || spot.isUncovered) && type === 'Vaga Comum') {
+                                        return false;
+                                      }
+                                      return true;
+                                    })
+                                : [];
+                              
+                              const spotTypesRaw = typesArray.length > 0 ? typesArray.join(', ') : 'N/A';
                               const coverage = spot?.isCovered ? 'Coberta' : (spot?.isUncovered ? 'Descoberta' : '');
-                              const spotTypes = [spotTypesRaw, coverage].filter(Boolean).join(', ');
+                              const spotTypes = [spotTypesRaw !== 'N/A' ? spotTypesRaw : '', coverage].filter(Boolean).join(', ') || 'N/A';
 
                               return (
                                 <TableRow key={result.id}>

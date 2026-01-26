@@ -2441,6 +2441,18 @@ export const LotterySystem = () => {
                                         </div>
                                         <div className="mt-0.5 flex items-center gap-1 flex-wrap">
                                           {spot?.type && (Array.isArray(spot.type) ? spot.type : [spot.type])
+                                            .filter(type => {
+                                              // Não mostrar "Vaga Comum" se for coberta ou descoberta
+                                              if ((spot.isCovered || spot.isUncovered) && type === 'Vaga Comum') {
+                                                return false;
+                                              }
+                                              // Não mostrar "Vaga Coberta" ou "Vaga Descoberta" do array de tipos
+                                              // pois já é mostrado pelos badges separados de isCovered/isUncovered
+                                              if (type === 'Vaga Coberta' || type === 'Vaga Descoberta') {
+                                                return false;
+                                              }
+                                              return true;
+                                            })
                                             .map((type, i) => (
                                               <Badge
                                                 key={i}
@@ -2452,10 +2464,8 @@ export const LotterySystem = () => {
                                                           type === 'Vaga Presa' ? 'linked' :
                                                             type === 'Vaga Livre' ? 'unlinked' :
                                                               type === 'Vaga Motocicleta' ? 'motorcycle' :
-                                                                type === 'Vaga Coberta' ? 'covered' :
-                                                                  type === 'Vaga Descoberta' ? 'uncovered' :
-                                                                    type === 'Vaga Comum' ? 'common' :
-                                                                      'destructive'
+                                                                type === 'Vaga Comum' ? 'common' :
+                                                                  'destructive'
                                                 }
                                                 className="text-[10px] px-1.5 py-0"
                                               >
@@ -2512,6 +2522,17 @@ export const LotterySystem = () => {
                           {/* Características da Vaga */}
                           <div className="mt-1.5 flex items-center gap-1 flex-wrap">
                             {data.spot?.type && (Array.isArray(data.spot.type) ? data.spot.type : [data.spot.type])
+                              .filter(type => {
+                                // Não mostrar "Vaga Comum" se for coberta ou descoberta
+                                if ((data.spot?.isCovered || data.spot?.isUncovered) && type === 'Vaga Comum') {
+                                  return false;
+                                }
+                                // Não mostrar "Vaga Coberta" ou "Vaga Descoberta" do array de tipos
+                                if (type === 'Vaga Coberta' || type === 'Vaga Descoberta') {
+                                  return false;
+                                }
+                                return true;
+                              })
                               .map((type, i) => (
                                 <Badge
                                   key={i}
@@ -2523,10 +2544,8 @@ export const LotterySystem = () => {
                                             type === 'Vaga Presa' ? 'linked' :
                                               type === 'Vaga Livre' ? 'unlinked' :
                                                 type === 'Vaga Motocicleta' ? 'motorcycle' :
-                                                  type === 'Vaga Coberta' ? 'covered' :
-                                                    type === 'Vaga Descoberta' ? 'uncovered' :
-                                                      type === 'Vaga Comum' ? 'common' :
-                                                        'destructive'
+                                                  type === 'Vaga Comum' ? 'common' :
+                                                    'destructive'
                                   }
                                   className="text-[10px] px-1.5 py-0"
                                 >
