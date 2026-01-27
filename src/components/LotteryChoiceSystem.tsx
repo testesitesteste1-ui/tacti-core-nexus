@@ -623,8 +623,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
             filtered = filtered.filter((spot: ParkingSpot) => {
                 const types = Array.isArray(spot.type) ? spot.type : [spot.type];
 
-                if (filterType === 'covered') return spot.isCovered === true;
-                if (filterType === 'uncovered') return spot.isUncovered === true;
+                // ✅ CORRIGIDO: Verificar AMBOS (type[] e booleanos)
+                if (filterType === 'covered') return types.includes('Vaga Coberta') || spot.isCovered === true;
+                if (filterType === 'uncovered') return types.includes('Vaga Descoberta') || spot.isUncovered === true;
                 if (filterType === 'pcd') return types.includes('Vaga PcD');
                 if (filterType === 'elderly') return types.includes('Vaga Idoso');
                 if (filterType === 'large') return types.includes('Vaga Grande');
@@ -657,8 +658,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
             filtered = filtered.filter((spot: ParkingSpot) => {
                 const types = Array.isArray(spot.type) ? spot.type : [spot.type];
 
-                if (filterType === 'covered') return spot.isCovered === true;
-                if (filterType === 'uncovered') return spot.isUncovered === true;
+                // ✅ CORRIGIDO: Verificar AMBOS (type[] e booleanos)
+                if (filterType === 'covered') return types.includes('Vaga Coberta') || spot.isCovered === true;
+                if (filterType === 'uncovered') return types.includes('Vaga Descoberta') || spot.isUncovered === true;
                 if (filterType === 'pcd') return types.includes('Vaga PcD');
                 if (filterType === 'elderly') return types.includes('Vaga Idoso');
                 if (filterType === 'large') return types.includes('Vaga Grande');

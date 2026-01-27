@@ -320,9 +320,12 @@ export const SectorLotterySystem = () => {
           getSpotSector(s) === sector
         );
 
-        // ✅ NOVO: Aplicar filtro de coberta/descoberta PRIMEIRO (estrito)
+        // ✅ CORRIGIDO: Aplicar filtro de coberta/descoberta verificando AMBOS (type[] e booleanos)
         if (wantsCovered) {
-          const coveredSpots = sectorSpots.filter(s => s.isCovered === true);
+          const coveredSpots = sectorSpots.filter(s => {
+            const typeArray = Array.isArray(s.type) ? s.type : [s.type];
+            return typeArray.includes('Vaga Coberta') || s.isCovered === true;
+          });
           if (coveredSpots.length > 0) {
             sectorSpots = coveredSpots;
             console.log(`      🏠 Filtrado para vagas COBERTAS: ${coveredSpots.length} disponíveis`);
@@ -331,7 +334,10 @@ export const SectorLotterySystem = () => {
             continue; // Tentar próximo setor
           }
         } else if (wantsUncovered) {
-          const uncoveredSpots = sectorSpots.filter(s => s.isUncovered === true || s.isCovered === false);
+          const uncoveredSpots = sectorSpots.filter(s => {
+            const typeArray = Array.isArray(s.type) ? s.type : [s.type];
+            return typeArray.includes('Vaga Descoberta') || s.isUncovered === true;
+          });
           if (uncoveredSpots.length > 0) {
             sectorSpots = uncoveredSpots;
             console.log(`      ☀️ Filtrado para vagas DESCOBERTAS: ${uncoveredSpots.length} disponíveis`);
@@ -441,16 +447,22 @@ export const SectorLotterySystem = () => {
             getSpotSector(s) === sector
           );
 
-          // ✅ NOVO: Aplicar filtro de cobertura PRIMEIRO
+          // ✅ CORRIGIDO: Aplicar filtro de cobertura verificando AMBOS (type[] e booleanos)
           if (wantsCovered) {
-            const coveredSpots = sectorSpots.filter(s => s.isCovered === true);
+            const coveredSpots = sectorSpots.filter(s => {
+              const typeArray = Array.isArray(s.type) ? s.type : [s.type];
+              return typeArray.includes('Vaga Coberta') || s.isCovered === true;
+            });
             if (coveredSpots.length > 0) {
               sectorSpots = coveredSpots;
             } else {
               continue; // Tentar próximo setor
             }
           } else if (wantsUncovered) {
-            const uncoveredSpots = sectorSpots.filter(s => s.isUncovered === true || s.isCovered === false);
+            const uncoveredSpots = sectorSpots.filter(s => {
+              const typeArray = Array.isArray(s.type) ? s.type : [s.type];
+              return typeArray.includes('Vaga Descoberta') || s.isUncovered === true;
+            });
             if (uncoveredSpots.length > 0) {
               sectorSpots = uncoveredSpots;
             } else {
@@ -546,9 +558,12 @@ export const SectorLotterySystem = () => {
       for (let i = 0; i < needed; i++) {
         let eligibleSpots = availableSpots.filter(s => !assignedSpotIds.has(s.id));
         
-        // ✅ NOVO: Aplicar filtro de cobertura PRIMEIRO
+        // ✅ CORRIGIDO: Aplicar filtro de cobertura verificando AMBOS (type[] e booleanos)
         if (wantsCovered) {
-          const coveredSpots = eligibleSpots.filter(s => s.isCovered === true);
+          const coveredSpots = eligibleSpots.filter(s => {
+            const typeArray = Array.isArray(s.type) ? s.type : [s.type];
+            return typeArray.includes('Vaga Coberta') || s.isCovered === true;
+          });
           if (coveredSpots.length > 0) {
             eligibleSpots = coveredSpots;
             console.log(`      🏠 Usando vagas COBERTAS: ${coveredSpots.length} disponíveis`);
@@ -556,7 +571,10 @@ export const SectorLotterySystem = () => {
             console.log(`      ⚠️ SEM vagas COBERTAS disponíveis`);
           }
         } else if (wantsUncovered) {
-          const uncoveredSpots = eligibleSpots.filter(s => s.isUncovered === true || s.isCovered === false);
+          const uncoveredSpots = eligibleSpots.filter(s => {
+            const typeArray = Array.isArray(s.type) ? s.type : [s.type];
+            return typeArray.includes('Vaga Descoberta') || s.isUncovered === true;
+          });
           if (uncoveredSpots.length > 0) {
             eligibleSpots = uncoveredSpots;
             console.log(`      ☀️ Usando vagas DESCOBERTAS: ${uncoveredSpots.length} disponíveis`);
