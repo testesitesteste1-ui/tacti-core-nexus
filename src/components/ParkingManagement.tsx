@@ -476,7 +476,7 @@ export const ParkingManagement = () => {
   const getTypeBadge = (type: SpotType) => {
     switch (type) {
       case 'Vaga Comum':
-        return <Badge variant="normal">Vaga Comum</Badge>;
+        return <Badge variant="common">Vaga Comum</Badge>;
       case 'Vaga PcD':
         return <Badge variant="pcd">Vaga PcD</Badge>;
       case 'Vaga Idoso':

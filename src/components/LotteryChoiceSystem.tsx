@@ -14,7 +14,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
-import type { Participant, ParkingSpot } from '@/types/lottery';
+import type { Participant, ParkingSpot, LotterySession, LotteryResult } from '@/types/lottery';
+import { savePublicResults } from '@/utils/publicResults';
 
 // ============================================================================
 // 🎲 FUNÇÃO DE EMBARALHAMENTO (Fisher-Yates)
@@ -175,7 +176,81 @@ export default function LotteryChoiceSystem(): JSX.Element {
     }, [drawnOrder, currentTurnIndex, availableSpots, sessionStarted, sessionFinalized, selectedBuilding?.id, isRestored]);
     //  Adicionar isRestored aqui ^^^^^^^^^^^
 
-  
+    // ============================================================================
+    // 📤 FUNÇÃO: SALVAR RESULTADOS PÚBLICOS DO SORTEIO DE ESCOLHA
+    // ============================================================================
+    const saveChoiceResultsToPublic = async (completedOrder: DrawnParticipant[]): Promise<void> => {
+        if (!selectedBuilding?.id) return;
+
+        try {
+            // Converter os resultados do sorteio de escolha para o formato LotteryResult
+            const results: LotteryResult[] = [];
+            completedOrder.forEach((participant) => {
+                participant.allocatedSpots.forEach((spot) => {
+                    const result: LotteryResult = {
+                        id: `choice-${participant.id}-${spot.id}`,
+                        participantId: participant.id,
+                        parkingSpotId: spot.id,
+                        timestamp: new Date(),
+                        priority: participant.hasSpecialNeeds ? 'special-needs' :
+                                  participant.isElderly ? 'elderly' : 'normal',
+                        participantSnapshot: {
+                            name: participant.name,
+                            block: participant.block,
+                            unit: participant.unit,
+                        },
+                        spotSnapshot: {
+                            number: spot.number,
+                            floor: spot.floor,
+                            type: spot.type,
+                            size: spot.size,
+                            isCovered: spot.isCovered,
+                            isUncovered: spot.isUncovered,
+                        },
+                    };
+                    results.push(result);
+                });
+            });
+
+            // Criar sessão de sorteio
+            const session: LotterySession = {
+                id: `choice-session-${Date.now()}`,
+                buildingId: selectedBuilding.id,
+                name: `Sorteio de Escolha - ${new Date().toLocaleDateString('pt-BR')}`,
+                date: new Date(),
+                participants: completedOrder.map(p => p.id),
+                availableSpots: buildingSpots.map(s => s.id),
+                results: results,
+                status: 'completed',
+                settings: {
+                    allowSharedSpots: false,
+                    prioritizeElders: true,
+                    prioritizeSpecialNeeds: true,
+                    zoneByProximity: false,
+                },
+            };
+
+            // Salvar resultados públicos
+            const saveResult = await savePublicResults(
+                session,
+                selectedBuilding.name || 'Condomínio',
+                participants,
+                parkingSpots,
+                selectedBuilding.company
+            );
+
+            if (saveResult.success) {
+                toast({
+                    title: "Resultados publicados! 📱",
+                    description: "Os resultados estão disponíveis no QR Code.",
+                });
+            } else {
+                console.error('Erro ao salvar resultados públicos:', saveResult.error);
+            }
+        } catch (error) {
+            console.error('Erro ao salvar resultados públicos:', error);
+        }
+    };
 
     // ============================================================================
     // 🎲 FUNÇÃO: SORTEAR ORDEM DOS PARTICIPANTES
@@ -289,6 +364,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     title: "Sorteio Finalizado! 🎉",
                     description: "Todos os participantes escolheram suas vagas.",
                 });
+
+                // Salvar resultados públicos
+                saveChoiceResultsToPublic(updatedOrder);
 
                 // Opcional: você pode adicionar um estado de "finalizado" se quiser
                 setSessionFinalized(true);

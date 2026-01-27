@@ -1757,14 +1757,9 @@ export const LotterySystem = () => {
     if (participant.prefersUnlinkedSpot) badges.push({ label: 'Pref. por Vaga Livre', variant: 'unlinked' });
     if (participant.prefersSmallSpot) badges.push({ label: 'Pref. Pequena', variant: 'small' });
 
-    // ✅ ADICIONAR ESTAS LINHAS AQUI:
-    // Adicionar "Pref. por Vaga Comum" apenas se não tem NENHUMA preferência específica
-    const hasAnyPreference = participant.prefersCovered || participant.prefersUncovered ||
-      participant.prefersLinkedSpot || participant.prefersUnlinkedSpot ||
-      participant.prefersSmallSpot;
-    if (!hasAnyPreference && !participant.hasSpecialNeeds && !participant.isElderly &&
-      !participant.hasLargeCar && !participant.hasSmallCar && !participant.hasMotorcycle) {
-      badges.push({ label: 'Pref. por Vaga Comum', variant: 'common' });
+    // Adicionar "Pref. por Vaga Comum" se marcado explicitamente
+    if (participant.prefersCommonSpot) {
+      badges.push({ label: 'P. Vaga Comum', variant: 'common' });
     }
 
     return badges;
@@ -2440,10 +2435,11 @@ export const LotterySystem = () => {
                                           )}
                                         </div>
                                         <div className="mt-0.5 flex items-center gap-1 flex-wrap">
-                                          {spot?.type && (Array.isArray(spot.type) ? spot.type : [spot.type])
-                                            .filter(type => {
+                                          {(() => {
+                                            const typeArray = spot?.type ? (Array.isArray(spot.type) ? spot.type : [spot.type]) : [];
+                                            const filteredTypes = typeArray.filter(type => {
                                               // Não mostrar "Vaga Comum" se for coberta ou descoberta
-                                              if ((spot.isCovered || spot.isUncovered) && type === 'Vaga Comum') {
+                                              if ((spot?.isCovered || spot?.isUncovered) && type === 'Vaga Comum') {
                                                 return false;
                                               }
                                               // Não mostrar "Vaga Coberta" ou "Vaga Descoberta" do array de tipos
@@ -2452,7 +2448,12 @@ export const LotterySystem = () => {
                                                 return false;
                                               }
                                               return true;
-                                            })
+                                            });
+                                            // Se não houver tipos após filtrar E não for coberta/descoberta, mostrar "Vaga Comum"
+                                            const showCommon = filteredTypes.length === 0 && !spot?.isCovered && !spot?.isUncovered;
+                                            const typesToShow = showCommon ? ['Vaga Comum'] : filteredTypes;
+                                            return typesToShow;
+                                          })()
                                             .map((type, i) => (
                                               <Badge
                                                 key={i}
@@ -2521,8 +2522,9 @@ export const LotterySystem = () => {
 
                           {/* Características da Vaga */}
                           <div className="mt-1.5 flex items-center gap-1 flex-wrap">
-                            {data.spot?.type && (Array.isArray(data.spot.type) ? data.spot.type : [data.spot.type])
-                              .filter(type => {
+                            {(() => {
+                              const typeArray = data.spot?.type ? (Array.isArray(data.spot.type) ? data.spot.type : [data.spot.type]) : [];
+                              const filteredTypes = typeArray.filter(type => {
                                 // Não mostrar "Vaga Comum" se for coberta ou descoberta
                                 if ((data.spot?.isCovered || data.spot?.isUncovered) && type === 'Vaga Comum') {
                                   return false;
@@ -2532,7 +2534,12 @@ export const LotterySystem = () => {
                                   return false;
                                 }
                                 return true;
-                              })
+                              });
+                              // Se não houver tipos após filtrar E não for coberta/descoberta, mostrar "Vaga Comum"
+                              const showCommon = filteredTypes.length === 0 && !data.spot?.isCovered && !data.spot?.isUncovered;
+                              const typesToShow = showCommon ? ['Vaga Comum'] : filteredTypes;
+                              return typesToShow;
+                            })()
                               .map((type, i) => (
                                 <Badge
                                   key={i}
