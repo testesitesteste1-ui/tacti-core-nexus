@@ -372,7 +372,7 @@ export const ParticipantManagement = () => {
     if (participant.hasSmallCar) badges.push({ label: 'Veículo Pequeno', variant: 'small' });
     if (participant.hasLargeCar) badges.push({ label: 'Veículo Grande', variant: 'large' });
     if (participant.hasMotorcycle) badges.push({ label: 'Motocicleta', variant: 'motorcycle' });
-    if (participant.prefersCommonSpot) badges.push({ label: 'Pref. por Vaga Comum', variant: 'normal' });
+    if (participant.prefersCommonSpot) badges.push({ label: 'Pref. por Vaga Comum', variant: 'common' });
     if (participant.prefersCovered) badges.push({ label: 'Pref. por Vaga Coberta', variant: 'covered' });
     if (participant.prefersUncovered) badges.push({ label: 'Pref. por Vaga Descoberta', variant: 'uncovered' });
     if (participant.prefersUnlinkedSpot) badges.push({ label: 'Pref. por Vaga Livre', variant: 'unlinked' });

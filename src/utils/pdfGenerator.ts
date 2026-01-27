@@ -101,6 +101,16 @@ export const generateLotteryPDF = (
       blockUnit += ' <span class="priority large-car">Veículo Grande</span>';
     }
 
+    // Marcar Veículo Pequeno
+    if (participant.hasSmallCar) {
+      blockUnit += ' <span class="priority small-car">Veículo Pequeno</span>';
+    }
+
+    // Marcar Motocicleta
+    if (participant.hasMotorcycle) {
+      blockUnit += ' <span class="priority motorcycle">Motocicleta</span>';
+    }
+
     // Marcar Preferências de Vaga
     if (participant.prefersCovered) {
       blockUnit += ' <span class="priority covered">P. Vaga Coberta</span>';
@@ -113,6 +123,12 @@ export const generateLotteryPDF = (
     }
     if (participant.prefersUnlinkedSpot) {
       blockUnit += ' <span class="priority unlinked">P. Vaga Livre</span>';
+    }
+    if (participant.prefersCommonSpot) {
+      blockUnit += ' <span class="priority common">P. Vaga Comum</span>';
+    }
+    if (participant.prefersSmallSpot) {
+      blockUnit += ' <span class="priority small-car">P. Vaga Pequena</span>';
     }
 
     return blockUnit;
@@ -233,14 +249,14 @@ export const generateLotteryPDF = (
         .priority.pregnant { background: #10b981; color: white; }
         .priority.up-to-date { background: #dc2626; color: white; }
         .priority.normal { background: #16a34a; color: white; }
-        .priority.large-car {
-          background: #000;
-          color: #fff;
-        }
+        .priority.large-car { background: #000; color: #fff; }
+        .priority.small-car { background: #eab308; color: #000; }
+        .priority.motorcycle { background: #92400e; color: white; }
         .priority.covered { background: #1d4ed8; color: white; }
         .priority.uncovered { background: #f97316; color: white; }
-        .priority.linked { background: #a855f7; color: white; }
+        .priority.linked { background: #db2777; color: white; }
         .priority.unlinked { background: #16a34a; color: white; }
+        .priority.common { background: #64748b; color: white; }
 
         .footer {
           text-align: center;

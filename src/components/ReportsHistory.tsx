@@ -547,13 +547,19 @@ export const ReportsHistory = () => {
                                       if ((spot.isCovered || spot.isUncovered) && type === 'Vaga Comum') {
                                         return false;
                                       }
+                                      // Não mostrar Vaga Coberta/Descoberta do array pois já é mostrado separadamente
+                                      if (type === 'Vaga Coberta' || type === 'Vaga Descoberta') {
+                                        return false;
+                                      }
                                       return true;
                                     })
                                 : [];
                               
-                              const spotTypesRaw = typesArray.length > 0 ? typesArray.join(', ') : 'N/A';
-                              const coverage = spot?.isCovered ? 'Coberta' : (spot?.isUncovered ? 'Descoberta' : '');
-                              const spotTypes = [spotTypesRaw !== 'N/A' ? spotTypesRaw : '', coverage].filter(Boolean).join(', ') || 'N/A';
+                              const spotTypesRaw = typesArray.length > 0 ? typesArray.join(', ') : '';
+                              const coverage = spot?.isCovered ? 'Vaga Coberta' : (spot?.isUncovered ? 'Vaga Descoberta' : '');
+                              // Mostrar "Vaga Comum" se não houver tipos específicos E não for coberta/descoberta
+                              const showCommon = typesArray.length === 0 && !spot?.isCovered && !spot?.isUncovered;
+                              const spotTypes = [spotTypesRaw, coverage].filter(Boolean).join(', ') || (showCommon ? 'Vaga Comum' : 'N/A');
 
                               return (
                                 <TableRow key={result.id}>
