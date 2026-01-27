@@ -197,37 +197,95 @@ function findCompatibleSpots(
   strictCoverageFilter?: 'covered' | 'uncovered' | null
 ): SpotWithFilters[] {
   return availableSpots.filter(spot => {
-    // ✅ NOVA REGRA: Vagas de motocicleta são EXCLUSIVAS
-    // ✅ REGRA: Vagas de motocicleta são EXCLUSIVAS
     const typeArray = Array.isArray(spot.type) ? spot.type : [spot.type];
+    
+    // ============================================================================
+    // REGRA 1: MOTOCICLETA - Exclusividade bidirecional
+    // ============================================================================
     const isMotorcycleSpot = typeArray.includes('Vaga Motocicleta');
-
-    // Se a vaga é de motocicleta, o participante PRECISA ter o filtro MOTOCICLETA (9)
-    if (isMotorcycleSpot) {
-      const hasMotorcycleFilter = requiredFilters.includes(PRIORITY.MOTOCICLETA);
-      if (!hasMotorcycleFilter) {
-        return false; // ❌ Vaga de moto só serve para quem tem moto
-      }
-    }
-
-    // Se o participante tem moto, só aceita vagas de motocicleta
     const participantHasMotorcycle = requiredFilters.includes(PRIORITY.MOTOCICLETA);
+
+    if (isMotorcycleSpot && !participantHasMotorcycle) {
+      return false; // ❌ Vaga de moto só serve para quem tem moto
+    }
     if (participantHasMotorcycle && !isMotorcycleSpot) {
       return false; // ❌ Quem tem moto só pode pegar vaga de moto
     }
 
-    // ✅ Ignorar filtro COMUM (9) e filtros de COBERTURA dos requiredFilters
-    // ✅ NOVO: Não ignora mais nenhum filtro - todos são tratados igualmente
-    const hasFilters = requiredFilters.length === 0
-      ? true
-      : spotHasAllFilters(spot, requiredFilters);
+    // ============================================================================
+    // REGRA 2: COBERTURA - Verificação ESTRITA quando solicitada
+    // ============================================================================
+    if (strictCoverageFilter === 'covered') {
+      // Participante PRECISA de vaga coberta
+      const isCovered = typeArray.includes('Vaga Coberta') || spot.isCovered === true;
+      if (!isCovered) {
+        return false; // ❌ Vaga não é coberta
+      }
+    } else if (strictCoverageFilter === 'uncovered') {
+      // Participante PRECISA de vaga descoberta  
+      const isUncovered = typeArray.includes('Vaga Descoberta') || spot.isUncovered === true;
+      if (!isUncovered) {
+        return false; // ❌ Vaga não é descoberta
+      }
+    }
 
-    // Vaga está em um dos andares preferidos?
+    // ============================================================================
+    // REGRA 3: VAGA LIVRE vs VAGA PRESA - Exclusividade
+    // ============================================================================
+    const isLinkedSpot = typeArray.includes('Vaga Presa');
+    const isFreeSpot = typeArray.includes('Vaga Livre');
+    const participantWantsLinked = requiredFilters.includes(PRIORITY.VAGA_PRESA);
+    const participantWantsFree = requiredFilters.includes(PRIORITY.VAGA_LIVRE);
+
+    // Se participante quer vaga presa, só aceita vagas presas
+    if (participantWantsLinked && !isLinkedSpot) {
+      return false;
+    }
+    // Se participante quer vaga livre, só aceita vagas livres
+    if (participantWantsFree && !isFreeSpot) {
+      return false;
+    }
+
+    // ============================================================================
+    // REGRA 4: VAGA COMUM - Verificação quando solicitada
+    // ============================================================================
+    const isCommonSpot = typeArray.includes('Vaga Comum');
+    const participantWantsCommon = requiredFilters.includes(PRIORITY.VAGA_COMUM);
+    
+    // Se participante quer vaga comum, verificar se a vaga É comum
+    // Uma vaga é "comum" se: está marcada como Vaga Comum OU não tem tipos especiais
+    if (participantWantsCommon) {
+      const hasSpecialTypes = typeArray.some(t => 
+        t === 'Vaga PcD' || t === 'Vaga Idoso' || t === 'Vaga Grande' || 
+        t === 'Vaga Pequena' || t === 'Vaga Motocicleta'
+      );
+      // Aceita se é explicitamente comum OU se não tem tipos especiais
+      if (!isCommonSpot && hasSpecialTypes) {
+        return false;
+      }
+    }
+
+    // ============================================================================
+    // REGRA 5: OUTROS FILTROS (PCD, Idoso, Veículo Grande, Vaga Pequena)
+    // ============================================================================
+    // Filtrar apenas os filtros que NÃO são de cobertura/livre/comum (já tratados acima)
+    const coreFilters = requiredFilters.filter(f => 
+      f !== PRIORITY.VAGA_COBERTA && 
+      f !== PRIORITY.VAGA_DESCOBERTA && 
+      f !== PRIORITY.VAGA_PRESA && 
+      f !== PRIORITY.VAGA_LIVRE && 
+      f !== PRIORITY.VAGA_COMUM &&
+      f !== PRIORITY.INADIMPLENTE
+    );
+
+    const hasFilters = coreFilters.length === 0 
+      ? true 
+      : spotHasAllFilters(spot, coreFilters);
+
+    // ============================================================================
+    // REGRA 6: ANDAR PREFERIDO
+    // ============================================================================
     const matchesFloor = spotMatchesFloors(spot, preferredFloors);
-
-    // ✅ NOVO: Cobertura agora é verificada nos filtros normais, não separadamente
-    // Se o participante precisa de coberta/descoberta, isso já está nos requiredFilters
-    // e será verificado em spotHasAllFilters()
 
     return hasFilters && matchesFloor;
   });
