@@ -23,6 +23,9 @@ interface ImportPreview {
   hasSpecialNeeds: boolean;
   isElderly: boolean;
   hasLargeCar: boolean;
+  hasSmallCar: boolean;
+  hasMotorcycle: boolean;
+  prefersCommonSpot: boolean;
   prefersCovered: boolean;
   prefersUncovered: boolean;
   prefersLinkedSpot: boolean;
@@ -520,6 +523,9 @@ export const ParticipantManagement = () => {
         hasSpecialNeeds: row.hasSpecialNeeds,
         isElderly: row.isElderly,
         hasLargeCar: row.hasLargeCar,
+        hasSmallCar: row.hasSmallCar,
+        hasMotorcycle: row.hasMotorcycle,
+        prefersCommonSpot: row.prefersCommonSpot,
         prefersCovered: row.prefersCovered,
         prefersUncovered: row.prefersUncovered,
         prefersLinkedSpot: row.prefersLinkedSpot,
