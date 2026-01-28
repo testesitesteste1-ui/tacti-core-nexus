@@ -9,13 +9,15 @@ import { Label } from '@/components/ui/label';
 import {
     Shuffle, Users, Car, Trophy, Clock, CheckCircle, ArrowRight,
     RotateCcw, ParkingSquare, ListOrdered, Search, AlertTriangle, Undo2,
-    FileText, FileSpreadsheet, Edit, Check, X
+    FileText, FileSpreadsheet, Edit, Check, X, SkipForward, UserX, Dices
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
-import type { Participant, ParkingSpot, LotterySession, LotteryResult } from '@/types/lottery';
+import type { Participant, ParkingSpot, LotterySession, LotteryResult, SpotType } from '@/types/lottery';
 import { savePublicResults } from '@/utils/publicResults';
+import { generateLotteryPDF } from '@/utils/pdfGenerator';
+import * as XLSX from 'xlsx';
 
 // ============================================================================
 // 🎲 FUNÇÃO DE EMBARALHAMENTO (Fisher-Yates)
@@ -36,7 +38,8 @@ function shuffleArray<T>(array: T[]): T[] {
 interface DrawnParticipant extends Participant {
     drawOrder: number;
     allocatedSpots: ParkingSpot[];
-    status: 'waiting' | 'choosing' | 'completed';
+    status: 'waiting' | 'choosing' | 'completed' | 'skipped';
+    isAbsent?: boolean;
 }
 
 // ============================================================================
@@ -53,14 +56,12 @@ export default function LotteryChoiceSystem(): JSX.Element {
         s.buildingId === selectedBuilding?.id && s.status === 'available'
     );
 
-    // NOVO: Estado para finalização da sessão
-    const [sessionFinalized, setSessionFinalized] = useState<boolean>(false);
-
     // Estados principais
+    const [sessionFinalized, setSessionFinalized] = useState<boolean>(false);
     const [drawnOrder, setDrawnOrder] = useState<DrawnParticipant[]>([]);
     const [currentTurnIndex, setCurrentTurnIndex] = useState<number>(0);
     const [availableSpots, setAvailableSpots] = useState<ParkingSpot[]>([]);
-    const [isRestored, setIsRestored] = useState<boolean>(false); // ✅ ADICIONAR ESTA LINHA
+    const [isRestored, setIsRestored] = useState<boolean>(false);
 
     // Estados de UI
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
@@ -70,14 +71,15 @@ export default function LotteryChoiceSystem(): JSX.Element {
     const [isSelectingSpot, setIsSelectingSpot] = useState<boolean>(false);
     const [sessionStarted, setSessionStarted] = useState<boolean>(false);
 
-    // NOVO: Estado para busca de unidade
+    // Estado para busca de unidade
     const [searchUnitDialog, setSearchUnitDialog] = useState<boolean>(false);
     const [searchUnit, setSearchUnit] = useState<string>('');
+    const [searchResults, setSearchResults] = useState<DrawnParticipant[]>([]);
 
-    // NOVO: Estado para vaga pendente de confirmação
+    // Estado para vaga pendente de confirmação
     const [pendingSpot, setPendingSpot] = useState<ParkingSpot | null>(null);
 
-    // NOVO: Estado para alterar vaga já escolhida
+    // Estado para alterar vaga já escolhida
     const [editingParticipantDialog, setEditingParticipantDialog] = useState<boolean>(false);
     const [selectedParticipantToEdit, setSelectedParticipantToEdit] = useState<DrawnParticipant | null>(null);
     const [spotToReplace, setSpotToReplace] = useState<ParkingSpot | null>(null);
@@ -86,47 +88,24 @@ export default function LotteryChoiceSystem(): JSX.Element {
     // ============================================================================
     // 💾 PERSISTÊNCIA DO SORTEIO
     // ============================================================================
-    // ============================================================================
-    // 💾 PERSISTÊNCIA DO SORTEIO
-    // ============================================================================
     const STORAGE_KEY = `lottery-choice-${selectedBuilding?.id}`;
 
     // Carregar dados salvos ao montar o componente
     useEffect(() => {
-        console.log('🔵 [LOAD] useEffect de carregamento disparado');
-        console.log('🔵 [LOAD] selectedBuilding?.id:', selectedBuilding?.id);
-        console.log('🔵 [LOAD] buildingSpots.length:', buildingSpots.length);
-
-        if (!selectedBuilding?.id) {
-            console.log('🔴 [LOAD] Sem prédio selecionado, abortando');
-            return;
-        }
+        if (!selectedBuilding?.id) return;
 
         const saved = localStorage.getItem(STORAGE_KEY);
-        console.log('🔵 [LOAD] Dados salvos encontrados?', saved ? 'SIM' : 'NÃO');
-
         if (saved) {
             try {
                 const data = JSON.parse(saved);
-                console.log('🔵 [LOAD] Dados parseados:', {
-                    drawnOrder_length: data.drawnOrder?.length,
-                    currentTurnIndex: data.currentTurnIndex,
-                    availableSpots_length: data.availableSpots?.length,
-                    sessionStarted: data.sessionStarted,
-                    sessionFinalized: data.sessionFinalized
-                });
-
                 setDrawnOrder(data.drawnOrder || []);
                 setCurrentTurnIndex(data.currentTurnIndex || 0);
                 setSessionStarted(data.sessionStarted || false);
                 setSessionFinalized(data.sessionFinalized || false);
 
-                // SEMPRE priorizar os dados salvos de vagas disponíveis
                 if (data.availableSpots) {
-                    console.log('✅ [LOAD] Restaurando vagas salvas:', data.availableSpots.length);
                     setAvailableSpots(data.availableSpots);
                 } else {
-                    console.log('⚠️ [LOAD] Sem vagas salvas, usando buildingSpots:', buildingSpots.length);
                     setAvailableSpots(buildingSpots);
                 }
 
@@ -139,28 +118,18 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     });
                 }
             } catch (error) {
-                console.error('❌ [LOAD] Erro ao restaurar sorteio:', error);
+                console.error('Erro ao restaurar sorteio:', error);
                 setIsRestored(true);
             }
         } else {
-            console.log('🆕 [LOAD] Primeira vez, inicializando com buildingSpots:', buildingSpots.length);
             setAvailableSpots(buildingSpots);
             setIsRestored(true);
         }
     }, [selectedBuilding?.id]);
 
     // Salvar dados sempre que mudarem
-    // Salvar dados sempre que mudarem
     useEffect(() => {
-        console.log('💾 [SAVE] useEffect de salvamento disparado');
-        console.log('💾 [SAVE] availableSpots.length:', availableSpots.length);
-        console.log('💾 [SAVE] isRestored:', isRestored);
-
-        // ⚠️ CRÍTICO: Só salvar DEPOIS de restaurar
-        if (!selectedBuilding?.id || !sessionStarted || !isRestored) {
-            console.log('🔴 [SAVE] Não salvando');
-            return;
-        }
+        if (!selectedBuilding?.id || !sessionStarted || !isRestored) return;
 
         const dataToSave = {
             drawnOrder,
@@ -170,11 +139,8 @@ export default function LotteryChoiceSystem(): JSX.Element {
             sessionFinalized
         };
 
-        console.log('✅ [SAVE] Salvando availableSpots.length:', availableSpots.length);
-
         localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
     }, [drawnOrder, currentTurnIndex, availableSpots, sessionStarted, sessionFinalized, selectedBuilding?.id, isRestored]);
-    //  Adicionar isRestored aqui ^^^^^^^^^^^
 
     // ============================================================================
     // 📤 FUNÇÃO: SALVAR RESULTADOS PÚBLICOS DO SORTEIO DE ESCOLHA
@@ -183,7 +149,6 @@ export default function LotteryChoiceSystem(): JSX.Element {
         if (!selectedBuilding?.id) return;
 
         try {
-            // Converter os resultados do sorteio de escolha para o formato LotteryResult
             const results: LotteryResult[] = [];
             completedOrder.forEach((participant) => {
                 participant.allocatedSpots.forEach((spot) => {
@@ -212,7 +177,6 @@ export default function LotteryChoiceSystem(): JSX.Element {
                 });
             });
 
-            // Criar sessão de sorteio
             const session: LotterySession = {
                 id: `choice-session-${Date.now()}`,
                 buildingId: selectedBuilding.id,
@@ -230,7 +194,6 @@ export default function LotteryChoiceSystem(): JSX.Element {
                 },
             };
 
-            // Salvar resultados públicos
             const saveResult = await savePublicResults(
                 session,
                 selectedBuilding.name || 'Condomínio',
@@ -244,8 +207,6 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     title: "Resultados publicados! 📱",
                     description: "Os resultados estão disponíveis no QR Code.",
                 });
-            } else {
-                console.error('Erro ao salvar resultados públicos:', saveResult.error);
             }
         } catch (error) {
             console.error('Erro ao salvar resultados públicos:', error);
@@ -253,7 +214,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
     };
 
     // ============================================================================
-    // 🎲 FUNÇÃO: SORTEAR ORDEM DOS PARTICIPANTES
+    // 🎲 FUNÇÃO: SORTEAR ORDEM DOS PARTICIPANTES (COM PRIORIDADES)
     // ============================================================================
     const handleDrawOrder = async (): Promise<void> => {
         if (buildingParticipants.length === 0) {
@@ -283,14 +244,40 @@ export default function LotteryChoiceSystem(): JSX.Element {
             await new Promise(resolve => setTimeout(resolve, 30));
         }
 
-        // Embaralhar participantes
-        const shuffled = shuffleArray(buildingParticipants);
+        // ✅ SEPARAR POR PRIORIDADE
+        // 1. PcD primeiro
+        const pcdParticipants = buildingParticipants.filter(p => p.hasSpecialNeeds);
+        // 2. Idosos segundo
+        const elderlyParticipants = buildingParticipants.filter(p => p.isElderly && !p.hasSpecialNeeds);
+        // 3. Normais (não inadimplentes)
+        const normalParticipants = buildingParticipants.filter(p => 
+            !p.hasSpecialNeeds && !p.isElderly && p.isUpToDate !== false
+        );
+        // 4. Inadimplentes por último
+        const delinquentParticipants = buildingParticipants.filter(p => 
+            !p.hasSpecialNeeds && !p.isElderly && p.isUpToDate === false
+        );
 
-        const drawn: DrawnParticipant[] = shuffled.map((p, index) => ({
+        // Embaralhar cada grupo individualmente
+        const shuffledPcd = shuffleArray(pcdParticipants);
+        const shuffledElderly = shuffleArray(elderlyParticipants);
+        const shuffledNormal = shuffleArray(normalParticipants);
+        const shuffledDelinquent = shuffleArray(delinquentParticipants);
+
+        // Juntar na ordem correta
+        const orderedParticipants = [
+            ...shuffledPcd,
+            ...shuffledElderly,
+            ...shuffledNormal,
+            ...shuffledDelinquent
+        ];
+
+        const drawn: DrawnParticipant[] = orderedParticipants.map((p, index) => ({
             ...p,
             drawOrder: index + 1,
             allocatedSpots: [],
-            status: index === 0 ? 'choosing' : 'waiting'
+            status: index === 0 ? 'choosing' : 'waiting',
+            isAbsent: false
         }));
 
         setDrawnOrder(drawn);
@@ -301,10 +288,8 @@ export default function LotteryChoiceSystem(): JSX.Element {
 
         toast({
             title: "Ordem sorteada!",
-            description: `${drawn.length} participantes na fila de escolha.`,
+            description: `${drawn.length} participantes na fila. PcD: ${pcdParticipants.length}, Idosos: ${elderlyParticipants.length}, Normais: ${normalParticipants.length}, Inadimplentes: ${delinquentParticipants.length}`,
         });
-
-        console.log('🎲 Ordem sorteada:', drawn);
     };
 
     // ============================================================================
@@ -333,14 +318,21 @@ export default function LotteryChoiceSystem(): JSX.Element {
         const updatedAvailable = availableSpots.filter((s: ParkingSpot) => s.id !== pendingSpot.id);
         setAvailableSpots(updatedAvailable);
 
-        // Verificar se participante completou suas escolhas
-        const needsMoreSpots = updatedParticipant.allocatedSpots.length < (currentParticipant.numberOfSpots || 1);
+        // ✅ CORRIGIDO: Verificar se participante completou TODAS suas escolhas
+        const spotsNeededTotal = currentParticipant.numberOfSpots || 1;
+        const spotsAllocatedNow = updatedParticipant.allocatedSpots.length;
+        const needsMoreSpots = spotsAllocatedNow < spotsNeededTotal;
 
-        if (needsMoreSpots) {
+        if (needsMoreSpots && updatedAvailable.length > 0) {
             // Ainda precisa escolher mais vagas
             const updatedOrder = [...drawnOrder];
             updatedOrder[currentTurnIndex] = updatedParticipant;
             setDrawnOrder(updatedOrder);
+
+            toast({
+                title: `Vaga ${pendingSpot.number} alocada!`,
+                description: `Escolha mais ${spotsNeededTotal - spotsAllocatedNow} vaga(s).`,
+            });
         } else {
             // Completou - marcar como completo e avançar
             updatedParticipant.status = 'completed';
@@ -348,38 +340,172 @@ export default function LotteryChoiceSystem(): JSX.Element {
             const updatedOrder = [...drawnOrder];
             updatedOrder[currentTurnIndex] = updatedParticipant;
 
-            // Próximo participante
-            if (currentTurnIndex + 1 < drawnOrder.length) {
-                updatedOrder[currentTurnIndex + 1].status = 'choosing';
-                setCurrentTurnIndex(currentTurnIndex + 1);
+            // Encontrar próximo participante que não seja skipped/completed
+            let nextIndex = currentTurnIndex + 1;
+            while (nextIndex < updatedOrder.length && 
+                   (updatedOrder[nextIndex].status === 'completed' || updatedOrder[nextIndex].status === 'skipped')) {
+                nextIndex++;
+            }
+
+            if (nextIndex < updatedOrder.length) {
+                updatedOrder[nextIndex].status = 'choosing';
+                setCurrentTurnIndex(nextIndex);
             }
 
             setDrawnOrder(updatedOrder);
 
-            // Verificar se todos completaram
-            const allCompleted = updatedOrder.every((p: DrawnParticipant) => p.status === 'completed');
+            // Verificar se todos completaram (incluindo skipped)
+            const allDone = updatedOrder.every((p: DrawnParticipant) => 
+                p.status === 'completed' || p.status === 'skipped'
+            );
 
-            if (allCompleted) {
+            if (allDone) {
+                handleFinalizeSession(updatedOrder, updatedAvailable);
+            } else {
                 toast({
-                    title: "Sorteio Finalizado! 🎉",
-                    description: "Todos os participantes escolheram suas vagas.",
+                    title: "Participante concluído!",
+                    description: `${currentParticipant.block ? `Bloco ${currentParticipant.block} - ` : ''}Unidade ${currentParticipant.unit} escolheu ${spotsAllocatedNow} vaga(s).`,
                 });
-
-                // Salvar resultados públicos
-                saveChoiceResultsToPublic(updatedOrder);
-
-                // Opcional: você pode adicionar um estado de "finalizado" se quiser
-                setSessionFinalized(true);
             }
         }
 
-        toast({
-            title: "Vaga alocada!",
-            description: `Vaga ${pendingSpot.number} alocada para ${currentParticipant.name}`,
-        });
-
         setPendingSpot(null);
         setIsSelectingSpot(false);
+    };
+
+    // ============================================================================
+    // ⏭️ FUNÇÃO: PULAR PARTICIPANTE AUSENTE
+    // ============================================================================
+    const handleSkipParticipant = (): void => {
+        const currentParticipant = drawnOrder[currentTurnIndex];
+        if (!currentParticipant) return;
+
+        const updatedOrder = [...drawnOrder];
+        updatedOrder[currentTurnIndex] = {
+            ...currentParticipant,
+            status: 'skipped',
+            isAbsent: true
+        };
+
+        // Encontrar próximo participante
+        let nextIndex = currentTurnIndex + 1;
+        while (nextIndex < updatedOrder.length && 
+               (updatedOrder[nextIndex].status === 'completed' || updatedOrder[nextIndex].status === 'skipped')) {
+            nextIndex++;
+        }
+
+        if (nextIndex < updatedOrder.length) {
+            updatedOrder[nextIndex].status = 'choosing';
+            setCurrentTurnIndex(nextIndex);
+            setDrawnOrder(updatedOrder);
+
+            toast({
+                title: "Participante pulado",
+                description: `${currentParticipant.block ? `Bloco ${currentParticipant.block} - ` : ''}Unidade ${currentParticipant.unit} marcado como ausente.`,
+            });
+        } else {
+            // Todos terminaram ou foram pulados
+            setDrawnOrder(updatedOrder);
+            handleFinalizeSession(updatedOrder, availableSpots);
+        }
+    };
+
+    // ============================================================================
+    // 🎲 FUNÇÃO: SORTEAR VAGAS PARA AUSENTES
+    // ============================================================================
+    const handleRandomizeAbsent = (): void => {
+        const absentParticipants = drawnOrder.filter(p => p.status === 'skipped' && p.isAbsent);
+        
+        if (absentParticipants.length === 0) {
+            toast({
+                title: "Nenhum ausente",
+                description: "Não há participantes ausentes para sortear.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        if (availableSpots.length === 0) {
+            toast({
+                title: "Sem vagas",
+                description: "Não há vagas disponíveis para sortear.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        let remainingSpots = [...availableSpots];
+        const updatedOrder = [...drawnOrder];
+
+        // Embaralhar ausentes
+        const shuffledAbsent = shuffleArray(absentParticipants);
+
+        shuffledAbsent.forEach((participant) => {
+            const participantIndex = updatedOrder.findIndex(p => p.id === participant.id);
+            if (participantIndex === -1) return;
+
+            const spotsNeeded = (participant.numberOfSpots || 1) - participant.allocatedSpots.length;
+            const spotsToAllocate = Math.min(spotsNeeded, remainingSpots.length);
+
+            if (spotsToAllocate > 0) {
+                // Sortear vagas aleatoriamente
+                const shuffledSpots = shuffleArray(remainingSpots);
+                const allocatedSpots = shuffledSpots.slice(0, spotsToAllocate);
+
+                updatedOrder[participantIndex] = {
+                    ...updatedOrder[participantIndex],
+                    allocatedSpots: [...updatedOrder[participantIndex].allocatedSpots, ...allocatedSpots],
+                    status: 'completed',
+                    isAbsent: true
+                };
+
+                // Remover vagas alocadas das disponíveis
+                remainingSpots = remainingSpots.filter(s => !allocatedSpots.some(a => a.id === s.id));
+            }
+        });
+
+        setDrawnOrder(updatedOrder);
+        setAvailableSpots(remainingSpots);
+
+        const allocatedCount = absentParticipants.length - updatedOrder.filter(p => p.status === 'skipped').length;
+
+        toast({
+            title: "Ausentes sorteados! 🎲",
+            description: `${allocatedCount} participante(s) ausente(s) receberam vagas aleatoriamente.`,
+        });
+
+        // Verificar se todos completaram
+        const allDone = updatedOrder.every((p: DrawnParticipant) => 
+            p.status === 'completed' || (p.status === 'skipped' && p.allocatedSpots.length > 0)
+        );
+
+        if (allDone) {
+            handleFinalizeSession(updatedOrder, remainingSpots);
+        }
+    };
+
+    // ============================================================================
+    // 🏁 FUNÇÃO: FINALIZAR SESSÃO
+    // ============================================================================
+    const handleFinalizeSession = (finalOrder: DrawnParticipant[], remainingSpots: ParkingSpot[]): void => {
+        // Verificar se há ausentes sem vagas
+        const absentWithoutSpots = finalOrder.filter(p => p.status === 'skipped' && p.allocatedSpots.length === 0);
+        
+        if (absentWithoutSpots.length > 0 && remainingSpots.length > 0) {
+            toast({
+                title: "Sorteio quase completo!",
+                description: `Ainda há ${absentWithoutSpots.length} ausente(s) e ${remainingSpots.length} vaga(s). Use "Sortear Ausentes" para alocar.`,
+            });
+            return;
+        }
+
+        setSessionFinalized(true);
+        saveChoiceResultsToPublic(finalOrder.filter(p => p.allocatedSpots.length > 0));
+
+        toast({
+            title: "Sorteio Finalizado! 🎉",
+            description: "Todos os participantes foram processados.",
+        });
     };
 
     // ============================================================================
@@ -403,16 +529,10 @@ export default function LotteryChoiceSystem(): JSX.Element {
             return;
         }
 
-        // Pegar a última vaga alocada
         const lastSpot = currentParticipant.allocatedSpots[currentParticipant.allocatedSpots.length - 1];
-
-        // Remover da lista de alocados
         const updatedAllocatedSpots = currentParticipant.allocatedSpots.slice(0, -1);
-
-        // Devolver vaga para disponíveis
         const updatedAvailableSpots = [...availableSpots, lastSpot];
 
-        // Atualizar participante
         const updatedOrder = [...drawnOrder];
         updatedOrder[currentTurnIndex] = {
             ...currentParticipant,
@@ -452,33 +572,40 @@ export default function LotteryChoiceSystem(): JSX.Element {
     };
 
     // ============================================================================
-    // 🔍 BUSCAR POSIÇÃO DA UNIDADE
+    // 🔍 BUSCAR POSIÇÃO DA UNIDADE (ENCONTRAR TODAS)
     // ============================================================================
     const handleSearchUnit = (): void => {
         if (!searchUnit.trim()) {
-            toast({
-                title: "Digite uma unidade",
-                description: "Informe o número da unidade para buscar.",
-                variant: "destructive",
-            });
+            setSearchResults([]);
             return;
         }
 
-        const found = drawnOrder.find((p: DrawnParticipant) =>
-            p.unit.toLowerCase().includes(searchUnit.toLowerCase()) ||
-            (p.block && p.block.toLowerCase().includes(searchUnit.toLowerCase()))
+        const searchTerm = searchUnit.toLowerCase().trim();
+        
+        // ✅ CORRIGIDO: Encontrar TODAS as unidades que correspondem
+        const found = drawnOrder.filter((p: DrawnParticipant) =>
+            p.unit.toLowerCase().includes(searchTerm) ||
+            (p.block && p.block.toLowerCase().includes(searchTerm)) ||
+            (p.name && p.name.toLowerCase().includes(searchTerm))
         );
 
-        if (found) {
-            toast({
-                title: `Unidade encontrada!`,
-                description: `${found.block ? `Bloco ${found.block} - ` : ''}Unidade ${found.unit} está na posição ${found.drawOrder}º`,
-            });
-        } else {
+        setSearchResults(found);
+
+        if (found.length === 0) {
             toast({
                 title: "Unidade não encontrada",
                 description: "Esta unidade não está participando do sorteio.",
                 variant: "destructive",
+            });
+        } else if (found.length === 1) {
+            toast({
+                title: `Unidade encontrada!`,
+                description: `${found[0].block ? `Bloco ${found[0].block} - ` : ''}Unidade ${found[0].unit} está na posição ${found[0].drawOrder}º`,
+            });
+        } else {
+            toast({
+                title: `${found.length} unidades encontradas!`,
+                description: "Veja os resultados abaixo.",
             });
         }
     };
@@ -506,23 +633,17 @@ export default function LotteryChoiceSystem(): JSX.Element {
             return;
         }
 
-        // Encontrar índice do participante
         const participantIndex = drawnOrder.findIndex((p: DrawnParticipant) => p.id === selectedParticipantToEdit.id);
         if (participantIndex === -1) return;
 
-        // Remover vaga antiga
         const updatedAllocatedSpots = selectedParticipantToEdit.allocatedSpots.filter(
             (s: ParkingSpot) => s.id !== spotToReplace.id
         );
-
-        // Adicionar nova vaga
         updatedAllocatedSpots.push(newSpotForEdit);
 
-        // Devolver vaga antiga para disponíveis e remover nova vaga
         const updatedAvailableSpots = availableSpots.filter((s: ParkingSpot) => s.id !== newSpotForEdit.id);
         updatedAvailableSpots.push(spotToReplace);
 
-        // Atualizar participante
         const updatedOrder = [...drawnOrder];
         updatedOrder[participantIndex] = {
             ...selectedParticipantToEdit,
@@ -544,63 +665,197 @@ export default function LotteryChoiceSystem(): JSX.Element {
     };
 
     // ============================================================================
-    // 📄 FUNÇÃO: GERAR PDF DA ORDEM SORTEADA (ANTES DA ESCOLHA)
-    // ============================================================================
-    const handleGeneratePDFOrder = (): void => {
-        toast({
-            title: "Gerando PDF...",
-            description: "PDF da ordem do sorteio será gerado.",
-        });
-        // Implementar geração de PDF aqui
-        console.log('📄 Gerar PDF da ordem sorteada');
-    };
-
-    // ============================================================================
-    // 📄 FUNÇÃO: GERAR EXCEL DA ORDEM SORTEADA (ANTES DA ESCOLHA)
-    // ============================================================================
-    const handleGenerateExcelOrder = (): void => {
-        toast({
-            title: "Gerando Excel...",
-            description: "Excel da ordem do sorteio será gerado.",
-        });
-        // Implementar geração de Excel aqui
-        console.log('📊 Gerar Excel da ordem sorteada');
-    };
-
-    // ============================================================================
-    // 📄 FUNÇÃO: GERAR PDF POR PARTICIPANTE (APÓS ESCOLHA)
+    // 📄 FUNÇÃO: GERAR PDF POR PARTICIPANTE
     // ============================================================================
     const handleGeneratePDFByParticipant = (): void => {
-        toast({
-            title: "Gerando PDF...",
-            description: "PDF por participante será gerado.",
+        const completedParticipants = drawnOrder.filter(p => p.allocatedSpots.length > 0);
+        
+        if (completedParticipants.length === 0) {
+            toast({
+                title: "Nenhum resultado",
+                description: "Não há resultados para exportar.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        // Converter para LotteryResult
+        const results: LotteryResult[] = [];
+        completedParticipants.forEach((participant) => {
+            participant.allocatedSpots.forEach((spot) => {
+                results.push({
+                    id: `choice-${participant.id}-${spot.id}`,
+                    participantId: participant.id,
+                    parkingSpotId: spot.id,
+                    timestamp: new Date(),
+                    priority: participant.hasSpecialNeeds ? 'special-needs' :
+                              participant.isElderly ? 'elderly' : 'normal',
+                    participantSnapshot: {
+                        name: participant.name,
+                        block: participant.block,
+                        unit: participant.unit,
+                    },
+                    spotSnapshot: {
+                        number: spot.number,
+                        floor: spot.floor,
+                        type: spot.type,
+                        size: spot.size,
+                        isCovered: spot.isCovered,
+                        isUncovered: spot.isUncovered,
+                    },
+                });
+            });
         });
-        // Implementar geração de PDF aqui
-        console.log('📄 Gerar PDF por participante');
+
+        generateLotteryPDF(
+            `Sorteio de Escolha - ${new Date().toLocaleDateString('pt-BR')}`,
+            results,
+            participants,
+            parkingSpots,
+            selectedBuilding?.company || 'exvagas',
+            selectedBuilding?.name,
+            'participant'
+        );
+
+        toast({
+            title: "PDF gerado!",
+            description: "O PDF por participante foi gerado.",
+        });
     };
 
     // ============================================================================
-    // 📄 FUNÇÃO: GERAR PDF POR VAGA (APÓS ESCOLHA)
+    // 📄 FUNÇÃO: GERAR PDF POR VAGA
     // ============================================================================
     const handleGeneratePDFBySpot = (): void => {
-        toast({
-            title: "Gerando PDF...",
-            description: "PDF por vaga será gerado.",
+        const completedParticipants = drawnOrder.filter(p => p.allocatedSpots.length > 0);
+        
+        if (completedParticipants.length === 0) {
+            toast({
+                title: "Nenhum resultado",
+                description: "Não há resultados para exportar.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        const results: LotteryResult[] = [];
+        completedParticipants.forEach((participant) => {
+            participant.allocatedSpots.forEach((spot) => {
+                results.push({
+                    id: `choice-${participant.id}-${spot.id}`,
+                    participantId: participant.id,
+                    parkingSpotId: spot.id,
+                    timestamp: new Date(),
+                    priority: participant.hasSpecialNeeds ? 'special-needs' :
+                              participant.isElderly ? 'elderly' : 'normal',
+                    participantSnapshot: {
+                        name: participant.name,
+                        block: participant.block,
+                        unit: participant.unit,
+                    },
+                    spotSnapshot: {
+                        number: spot.number,
+                        floor: spot.floor,
+                        type: spot.type,
+                        size: spot.size,
+                        isCovered: spot.isCovered,
+                        isUncovered: spot.isUncovered,
+                    },
+                });
+            });
         });
-        // Implementar geração de PDF aqui
-        console.log('📄 Gerar PDF por vaga');
+
+        generateLotteryPDF(
+            `Sorteio de Escolha - ${new Date().toLocaleDateString('pt-BR')}`,
+            results,
+            participants,
+            parkingSpots,
+            selectedBuilding?.company || 'exvagas',
+            selectedBuilding?.name,
+            'spot'
+        );
+
+        toast({
+            title: "PDF gerado!",
+            description: "O PDF por vaga foi gerado.",
+        });
     };
 
     // ============================================================================
-    // 📊 FUNÇÃO: GERAR EXCEL APÓS ESCOLHA
+    // 📊 FUNÇÃO: GERAR EXCEL
     // ============================================================================
-    const handleGenerateExcelAfterChoice = (): void => {
+    const handleGenerateExcel = (): void => {
+        const completedParticipants = drawnOrder.filter(p => p.allocatedSpots.length > 0);
+        
+        if (completedParticipants.length === 0) {
+            toast({
+                title: "Nenhum resultado",
+                description: "Não há resultados para exportar.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        // Criar dados para Excel
+        const excelData: any[] = [];
+
+        completedParticipants
+            .sort((a, b) => {
+                const blockCompare = (a.block || '').localeCompare(b.block || '', 'pt-BR', { numeric: true });
+                if (blockCompare !== 0) return blockCompare;
+                return (a.unit || '').localeCompare(b.unit || '', 'pt-BR', { numeric: true });
+            })
+            .forEach((participant) => {
+                participant.allocatedSpots.forEach((spot, index) => {
+                    excelData.push({
+                        'Ordem': participant.drawOrder,
+                        'Bloco': participant.block || '',
+                        'Unidade': participant.unit,
+                        'Nome': participant.name || '',
+                        'Prioridade': participant.hasSpecialNeeds ? 'PcD' : 
+                                     participant.isElderly ? 'Idoso' : 
+                                     participant.isUpToDate === false ? 'Inadimplente' : 'Normal',
+                        'Ausente': participant.isAbsent ? 'Sim' : 'Não',
+                        'Vaga Nº': index + 1,
+                        'Número da Vaga': spot.number,
+                        'Andar': spot.floor,
+                        'Tipo': Array.isArray(spot.type) ? spot.type.join(', ') : spot.type,
+                        'Tamanho': spot.size,
+                        'Coberta': spot.isCovered ? 'Sim' : spot.isUncovered ? 'Não' : '-',
+                    });
+                });
+            });
+
+        // Criar workbook
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(excelData);
+
+        // Ajustar largura das colunas
+        ws['!cols'] = [
+            { wch: 8 },  // Ordem
+            { wch: 10 }, // Bloco
+            { wch: 12 }, // Unidade
+            { wch: 25 }, // Nome
+            { wch: 15 }, // Prioridade
+            { wch: 10 }, // Ausente
+            { wch: 8 },  // Vaga Nº
+            { wch: 15 }, // Número da Vaga
+            { wch: 20 }, // Andar
+            { wch: 30 }, // Tipo
+            { wch: 10 }, // Tamanho
+            { wch: 10 }, // Coberta
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Resultado Sorteio');
+
+        // Baixar arquivo
+        const fileName = `sorteio-escolha-${selectedBuilding?.name || 'resultado'}-${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+
         toast({
-            title: "Gerando Excel...",
-            description: "Excel com as alocações será gerado.",
+            title: "Excel gerado!",
+            description: "O arquivo Excel foi baixado.",
         });
-        // Implementar geração de Excel aqui
-        console.log('📊 Gerar Excel após escolha');
     };
 
     // ============================================================================
@@ -609,43 +864,6 @@ export default function LotteryChoiceSystem(): JSX.Element {
     const filteredSpots = useMemo(() => {
         let filtered = availableSpots;
 
-        // Filtro de busca
-        if (searchSpot) {
-            const search = searchSpot.toLowerCase();
-            filtered = filtered.filter((spot: ParkingSpot) =>
-                spot.number.toLowerCase().includes(search) ||
-                spot.floor.toLowerCase().includes(search)
-            );
-        }
-
-        // Filtro de tipo
-        if (filterType !== 'all') {
-            filtered = filtered.filter((spot: ParkingSpot) => {
-                const types = Array.isArray(spot.type) ? spot.type : [spot.type];
-
-                // ✅ CORRIGIDO: Verificar AMBOS (type[] e booleanos)
-                if (filterType === 'covered') return types.includes('Vaga Coberta') || spot.isCovered === true;
-                if (filterType === 'uncovered') return types.includes('Vaga Descoberta') || spot.isUncovered === true;
-                if (filterType === 'pcd') return types.includes('Vaga PcD');
-                if (filterType === 'elderly') return types.includes('Vaga Idoso');
-                if (filterType === 'large') return types.includes('Vaga Grande');
-                if (filterType === 'small') return types.includes('Vaga Pequena');
-
-                return true;
-            });
-        }
-
-        return filtered.sort((a: ParkingSpot, b: ParkingSpot) =>
-            a.number.localeCompare(b.number, 'pt-BR', { numeric: true })
-        );
-    }, [availableSpots, searchSpot, filterType]);
-
-    // ============================================================================
-    // 🔍 FILTRAR VAGAS PARA EDIÇÃO (INCLUINDO AS DISPONÍVEIS)
-    // ============================================================================
-    const filteredSpotsForEdit = useMemo(() => {
-        let filtered = availableSpots;
-
         if (searchSpot) {
             const search = searchSpot.toLowerCase();
             filtered = filtered.filter((spot: ParkingSpot) =>
@@ -658,13 +876,16 @@ export default function LotteryChoiceSystem(): JSX.Element {
             filtered = filtered.filter((spot: ParkingSpot) => {
                 const types = Array.isArray(spot.type) ? spot.type : [spot.type];
 
-                // ✅ CORRIGIDO: Verificar AMBOS (type[] e booleanos)
                 if (filterType === 'covered') return types.includes('Vaga Coberta') || spot.isCovered === true;
                 if (filterType === 'uncovered') return types.includes('Vaga Descoberta') || spot.isUncovered === true;
                 if (filterType === 'pcd') return types.includes('Vaga PcD');
                 if (filterType === 'elderly') return types.includes('Vaga Idoso');
                 if (filterType === 'large') return types.includes('Vaga Grande');
                 if (filterType === 'small') return types.includes('Vaga Pequena');
+                if (filterType === 'motorcycle') return types.includes('Vaga Motocicleta');
+                if (filterType === 'common') return types.includes('Vaga Comum');
+                if (filterType === 'linked') return types.includes('Vaga Presa');
+                if (filterType === 'free') return types.includes('Vaga Livre');
 
                 return true;
             });
@@ -674,6 +895,43 @@ export default function LotteryChoiceSystem(): JSX.Element {
             a.number.localeCompare(b.number, 'pt-BR', { numeric: true })
         );
     }, [availableSpots, searchSpot, filterType]);
+
+    // ============================================================================
+    // 🏷️ FUNÇÃO: OBTER BADGES DE TIPO DA VAGA
+    // ============================================================================
+    const getSpotBadges = (spot: ParkingSpot) => {
+        const types = Array.isArray(spot.type) ? spot.type : [spot.type];
+        const badges: { label: string; variant: string; icon: string }[] = [];
+
+        // Verificar tipos específicos
+        if (types.includes('Vaga PcD')) badges.push({ label: 'PcD', variant: 'pcd', icon: '♿' });
+        if (types.includes('Vaga Idoso')) badges.push({ label: 'Idoso', variant: 'elderly', icon: '👴' });
+        if (types.includes('Vaga Grande')) badges.push({ label: 'Grande', variant: 'large', icon: '🚙' });
+        if (types.includes('Vaga Pequena')) badges.push({ label: 'Pequena', variant: 'small', icon: '🚗' });
+        if (types.includes('Vaga Motocicleta')) badges.push({ label: 'Moto', variant: 'motorcycle', icon: '🏍️' });
+        if (types.includes('Vaga Presa')) badges.push({ label: 'Presa', variant: 'linked', icon: '🔗' });
+        if (types.includes('Vaga Livre')) badges.push({ label: 'Livre', variant: 'unlinked', icon: '🔓' });
+        
+        // Cobertura
+        if (spot.isCovered || types.includes('Vaga Coberta')) {
+            badges.push({ label: 'Coberta', variant: 'covered', icon: '🏠' });
+        }
+        if (spot.isUncovered || types.includes('Vaga Descoberta')) {
+            badges.push({ label: 'Descoberta', variant: 'uncovered', icon: '☀️' });
+        }
+
+        // Vaga Comum - mostrar apenas se não tem outros tipos específicos
+        const hasSpecificType = types.some(t => 
+            t !== 'Vaga Comum' && 
+            t !== 'Vaga Coberta' && 
+            t !== 'Vaga Descoberta'
+        );
+        if (types.includes('Vaga Comum') && !hasSpecificType) {
+            badges.push({ label: 'Comum', variant: 'common', icon: '🅿️' });
+        }
+
+        return badges;
+    };
 
     // ============================================================================
     // 🎨 PARTICIPANTE ATUAL
@@ -683,8 +941,8 @@ export default function LotteryChoiceSystem(): JSX.Element {
         ? (currentParticipant.numberOfSpots || 1) - currentParticipant.allocatedSpots.length
         : 0;
 
-    // NOVO: Verificar se ainda há vagas disponíveis
     const hasAvailableSpots = availableSpots.length > 0;
+    const hasAbsentParticipants = drawnOrder.some(p => p.status === 'skipped' && p.isAbsent);
 
     // ============================================================================
     // 📊 ESTATÍSTICAS
@@ -694,8 +952,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
         totalSpots: buildingSpots.length,
         availableSpots: availableSpots.length,
         completed: drawnOrder.filter((p: DrawnParticipant) => p.status === 'completed').length,
+        skipped: drawnOrder.filter((p: DrawnParticipant) => p.status === 'skipped').length,
         progress: drawnOrder.length > 0
-            ? (drawnOrder.filter((p: DrawnParticipant) => p.status === 'completed').length / drawnOrder.length) * 100
+            ? (drawnOrder.filter((p: DrawnParticipant) => p.status === 'completed' || p.status === 'skipped').length / drawnOrder.length) * 100
             : 0
     };
 
@@ -722,58 +981,41 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     {sessionStarted && (
                         <>
                             <Button
-                                onClick={() => setSearchUnitDialog(true)}
+                                onClick={() => {
+                                    setSearchUnitDialog(true);
+                                    setSearchResults([]);
+                                    setSearchUnit('');
+                                }}
                                 variant="outline"
                             >
                                 <Search className="mr-2 h-4 w-4" />
                                 Ordem de Unidade
                             </Button>
 
-                            {/* BOTÕES DE EXPORTAÇÃO ANTES DA ESCOLHA */}
-                            {drawnOrder.length > 0 && drawnOrder.every((p: DrawnParticipant) => p.allocatedSpots.length === 0) && (
-                                <>
-                                    <Button
-                                        onClick={handleGeneratePDFOrder}
-                                        variant="outline"
-                                    >
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        PDF da Ordem
-                                    </Button>
-                                    <Button
-                                        onClick={handleGenerateExcelOrder}
-                                        variant="outline"
-                                    >
-                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                        Excel da Ordem
-                                    </Button>
-                                </>
-                            )}
-
-                            {/* BOTÕES DE EXPORTAÇÃO APÓS ESCOLHA */}
+                            {/* BOTÕES DE EXPORTAÇÃO */}
                             {drawnOrder.some((p: DrawnParticipant) => p.allocatedSpots.length > 0) && (
                                 <>
-                                    <Button
-                                        onClick={handleGeneratePDFByParticipant}
-                                        variant="outline"
-                                    >
+                                    <Button onClick={handleGeneratePDFByParticipant} variant="outline">
                                         <FileText className="mr-2 h-4 w-4" />
                                         PDF por Participante
                                     </Button>
-                                    <Button
-                                        onClick={handleGeneratePDFBySpot}
-                                        variant="outline"
-                                    >
+                                    <Button onClick={handleGeneratePDFBySpot} variant="outline">
                                         <FileText className="mr-2 h-4 w-4" />
                                         PDF por Vaga
                                     </Button>
-                                    <Button
-                                        onClick={handleGenerateExcelAfterChoice}
-                                        variant="outline"
-                                    >
+                                    <Button onClick={handleGenerateExcel} variant="outline">
                                         <FileSpreadsheet className="mr-2 h-4 w-4" />
                                         Excel
                                     </Button>
                                 </>
+                            )}
+
+                            {/* BOTÃO SORTEAR AUSENTES */}
+                            {hasAbsentParticipants && hasAvailableSpots && (
+                                <Button onClick={handleRandomizeAbsent} variant="outline" className="border-orange-500 text-orange-600 hover:bg-orange-50">
+                                    <Dices className="mr-2 h-4 w-4" />
+                                    Sortear Ausentes
+                                </Button>
                             )}
                         </>
                     )}
@@ -797,10 +1039,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             )}
                         </Button>
                     ) : (
-                        <Button
-                            onClick={handleReset}
-                            variant="outline"
-                        >
+                        <Button onClick={handleReset} variant="outline">
                             <RotateCcw className="mr-2 h-4 w-4" />
                             Reiniciar
                         </Button>
@@ -809,7 +1048,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -826,37 +1065,47 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <Car className="h-4 w-4" />
-                            Vagas Totais
+                            Vagas Disponíveis
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.totalSpots}</div>
+                        <div className="text-2xl font-bold">{stats.availableSpots}</div>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <ParkingSquare className="h-4 w-4 text-green-500" />
-                            Disponíveis
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-500">{stats.availableSpots}</div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-blue-500" />
+                            <CheckCircle className="h-4 w-4" />
                             Concluídos
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-blue-500">
-                            {stats.completed}/{stats.totalParticipants}
-                        </div>
+                        <div className="text-2xl font-bold text-success">{stats.completed}</div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                            <UserX className="h-4 w-4" />
+                            Ausentes
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-orange-500">{stats.skipped}</div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Progresso</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Progress value={stats.progress} className="h-2" />
+                        <p className="text-sm text-muted-foreground mt-1">
+                            {Math.round(stats.progress)}%
+                        </p>
                     </CardContent>
                 </Card>
             </div>
@@ -864,71 +1113,45 @@ export default function LotteryChoiceSystem(): JSX.Element {
             {/* Progresso do Sorteio */}
             {isDrawing && (
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Sorteando ordem...</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Progress value={drawProgress} className="w-full" />
+                    <CardContent className="pt-6">
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span>Sorteando ordem...</span>
+                                <span>{drawProgress}%</span>
+                            </div>
+                            <Progress value={drawProgress} className="h-3" />
+                        </div>
                     </CardContent>
                 </Card>
             )}
 
-            {/* Progresso da Sessão */}
-            {sessionStarted && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Progresso da Alocação</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Progress value={stats.progress} className="w-full" />
-                        <p className="text-sm text-muted-foreground mt-2">
-                            {stats.completed} de {stats.totalParticipants} participantes alocados
-                        </p>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* BANNER: SORTEIO FINALIZADO */}
+            {/* ALERTA: SORTEIO FINALIZADO */}
             {sessionFinalized && (
                 <Card className="border-2 border-green-500 bg-green-50">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-green-700">
-                            <CheckCircle className="h-5 w-5" />
-                            Sorteio Finalizado! 🎉
+                            <Trophy className="h-5 w-5" />
+                            Sorteio Finalizado!
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-green-700">
-                            Todos os participantes escolheram suas vagas. Você pode exportar os resultados usando os botões acima.
-                        </p>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* ALERTA: VAGAS ESGOTADAS */}
-            {sessionStarted && !hasAvailableSpots && currentParticipant && currentParticipant.status === 'choosing' && (
-                <Card className="border-2 border-yellow-500 bg-yellow-50">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-yellow-700">
-                            <AlertTriangle className="h-5 w-5" />
-                            Vagas Esgotadas
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-yellow-700">
-                            Não há mais vagas disponíveis para escolha. O sorteio será encerrado.
+                            Todos os participantes foram processados. Use os botões acima para exportar os resultados.
                         </p>
                     </CardContent>
                 </Card>
             )}
 
             {/* VEZ ATUAL */}
-            {sessionStarted && currentParticipant && !sessionFinalized && (
+            {sessionStarted && currentParticipant && currentParticipant.status === 'choosing' && !sessionFinalized && (
                 <Card className="border-2 border-primary shadow-lg">
                     <CardHeader className="bg-primary/5">
                         <CardTitle className="flex items-center gap-2">
                             <Trophy className="h-5 w-5 text-primary" />
                             Vez Atual: {currentParticipant.drawOrder}º Sorteado
+                            {currentParticipant.hasSpecialNeeds && <Badge variant="pcd">PcD</Badge>}
+                            {currentParticipant.isElderly && <Badge variant="elderly">Idoso</Badge>}
+                            {currentParticipant.isUpToDate === false && <Badge variant="destructive">Inadimplente</Badge>}
                         </CardTitle>
                         <CardDescription>
                             {currentParticipant.block && `Bloco ${currentParticipant.block} - `}
@@ -940,7 +1163,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm text-muted-foreground">Vagas necessárias</p>
-                                    <p className="text-2xl font-bold">{spotsNeeded}</p>
+                                    <p className="text-2xl font-bold">{currentParticipant.numberOfSpots || 1}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">Já alocadas</p>
@@ -948,7 +1171,14 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                         {currentParticipant.allocatedSpots.length}
                                     </p>
                                 </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Faltam</p>
+                                    <p className="text-2xl font-bold text-orange-500">
+                                        {spotsNeeded}
+                                    </p>
+                                </div>
                             </div>
+
                             {currentParticipant.allocatedSpots.length > 0 && (
                                 <div>
                                     <p className="text-sm font-medium mb-2">Vagas alocadas:</p>
@@ -962,7 +1192,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                 </div>
                             )}
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                                 <Button
                                     onClick={() => setIsSelectingSpot(true)}
                                     className="flex-1 gradient-primary text-white"
@@ -973,6 +1203,15 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                         ? 'Sem vagas disponíveis'
                                         : `Escolher Vaga ${spotsNeeded > 1 ? `(${spotsNeeded} restantes)` : ''}`
                                     }
+                                </Button>
+
+                                <Button
+                                    onClick={handleSkipParticipant}
+                                    variant="outline"
+                                    className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                                >
+                                    <SkipForward className="mr-2 h-4 w-4" />
+                                    Pular (Ausente)
                                 </Button>
 
                                 {currentParticipant.allocatedSpots.length > 0 && (
@@ -999,6 +1238,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             <ListOrdered className="h-5 w-5" />
                             Ordem do Sorteio
                         </CardTitle>
+                        <CardDescription>
+                            Ordem: PcD → Idosos → Normais → Inadimplentes
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ScrollArea className="h-[400px]">
@@ -1006,27 +1248,36 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                 {drawnOrder.map((participant: DrawnParticipant) => (
                                     <div
                                         key={participant.id}
-                                        className={`p-4 rounded-lg border-2 transition-all ${participant.status === 'choosing'
-                                            ? 'border-primary bg-primary/5 shadow-md'
-                                            : participant.status === 'completed'
-                                                ? 'border-success bg-success/5'
-                                                : 'border-muted bg-muted/30'
-                                            }`}
+                                        className={`p-4 rounded-lg border-2 transition-all ${
+                                            participant.status === 'choosing'
+                                                ? 'border-primary bg-primary/5 shadow-md'
+                                                : participant.status === 'completed'
+                                                    ? 'border-success bg-success/5'
+                                                    : participant.status === 'skipped'
+                                                        ? 'border-orange-400 bg-orange-50'
+                                                        : 'border-muted bg-muted/30'
+                                        }`}
                                     >
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${participant.status === 'choosing'
-                                                    ? 'bg-primary text-primary-foreground'
-                                                    : participant.status === 'completed'
-                                                        ? 'bg-success text-success-foreground'
-                                                        : 'bg-muted text-muted-foreground'
-                                                    }`}>
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                                                    participant.status === 'choosing'
+                                                        ? 'bg-primary text-primary-foreground'
+                                                        : participant.status === 'completed'
+                                                            ? 'bg-success text-success-foreground'
+                                                            : participant.status === 'skipped'
+                                                                ? 'bg-orange-400 text-white'
+                                                                : 'bg-muted text-muted-foreground'
+                                                }`}>
                                                     {participant.drawOrder}
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium">
+                                                    <div className="font-medium flex items-center gap-2">
                                                         {participant.block && `Bloco ${participant.block} - `}
                                                         Unidade {participant.unit}
+                                                        {participant.hasSpecialNeeds && <Badge variant="pcd" className="text-xs">PcD</Badge>}
+                                                        {participant.isElderly && <Badge variant="elderly" className="text-xs">Idoso</Badge>}
+                                                        {participant.isUpToDate === false && <Badge variant="destructive" className="text-xs">Inad.</Badge>}
                                                     </div>
                                                     <div className="text-sm text-muted-foreground">
                                                         {participant.name}
@@ -1045,7 +1296,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                     <>
                                                         <Badge variant="secondary" className="bg-success text-success-foreground">
                                                             <CheckCircle className="h-3 w-3 mr-1" />
-                                                            Completo
+                                                            {participant.isAbsent ? 'Sorteado' : 'Completo'}
                                                         </Badge>
                                                         {!sessionFinalized && (
                                                             <Button
@@ -1058,6 +1309,12 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                             </Button>
                                                         )}
                                                     </>
+                                                )}
+                                                {participant.status === 'skipped' && participant.allocatedSpots.length === 0 && (
+                                                    <Badge variant="outline" className="border-orange-400 text-orange-600">
+                                                        <UserX className="h-3 w-3 mr-1" />
+                                                        Ausente
+                                                    </Badge>
                                                 )}
                                                 {participant.allocatedSpots.length > 0 && (
                                                     <Badge variant="outline">
@@ -1090,37 +1347,92 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     <DialogHeader>
                         <DialogTitle>Buscar Ordem de Unidade</DialogTitle>
                         <DialogDescription>
-                            Digite o número da unidade ou bloco para verificar sua posição no sorteio.
+                            Digite o número da unidade, bloco ou nome para verificar a posição no sorteio.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Unidade ou Bloco</Label>
-                            <Input
-                                placeholder="Ex: 101, A, B-202..."
-                                value={searchUnit}
-                                onChange={(e) => setSearchUnit(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleSearchUnit();
-                                    }
-                                }}
-                            />
+                            <Label>Unidade, Bloco ou Nome</Label>
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder="Ex: 101, A, João..."
+                                    value={searchUnit}
+                                    onChange={(e) => {
+                                        setSearchUnit(e.target.value);
+                                        if (e.target.value.length >= 1) {
+                                            const searchTerm = e.target.value.toLowerCase().trim();
+                                            const found = drawnOrder.filter((p: DrawnParticipant) =>
+                                                p.unit.toLowerCase().includes(searchTerm) ||
+                                                (p.block && p.block.toLowerCase().includes(searchTerm)) ||
+                                                (p.name && p.name.toLowerCase().includes(searchTerm))
+                                            );
+                                            setSearchResults(found);
+                                        } else {
+                                            setSearchResults([]);
+                                        }
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            handleSearchUnit();
+                                        }
+                                    }}
+                                />
+                                <Button onClick={handleSearchUnit}>
+                                    <Search className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
 
-                        {/* LISTA DE TODAS AS UNIDADES */}
+                        {/* RESULTADOS DA BUSCA */}
+                        {searchResults.length > 0 && (
+                            <div className="space-y-2">
+                                <Label className="text-green-600">Resultados encontrados ({searchResults.length}):</Label>
+                                <ScrollArea className="h-[200px] border rounded-lg p-3 bg-green-50">
+                                    <div className="space-y-2">
+                                        {searchResults.map((participant: DrawnParticipant) => (
+                                            <div
+                                                key={participant.id}
+                                                className="p-2 border rounded-md bg-white"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-medium">
+                                                        {participant.block && `Bl. ${participant.block} - `}
+                                                        Un. {participant.unit}
+                                                    </span>
+                                                    <Badge variant="default" className="text-lg">
+                                                        {participant.drawOrder}º
+                                                    </Badge>
+                                                </div>
+                                                <div className="text-sm text-muted-foreground">
+                                                    {participant.name}
+                                                </div>
+                                                <div className="flex gap-1 mt-1">
+                                                    {participant.hasSpecialNeeds && <Badge variant="pcd" className="text-xs">PcD</Badge>}
+                                                    {participant.isElderly && <Badge variant="elderly" className="text-xs">Idoso</Badge>}
+                                                    {participant.isUpToDate === false && <Badge variant="destructive" className="text-xs">Inad.</Badge>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        )}
+
+                        {/* LISTA COMPLETA */}
                         <div className="space-y-2">
                             <Label>Todas as unidades sorteadas:</Label>
-                            <ScrollArea className="h-[300px] border rounded-lg p-3">
+                            <ScrollArea className="h-[250px] border rounded-lg p-3">
                                 <div className="space-y-2">
                                     {drawnOrder.map((participant: DrawnParticipant) => (
                                         <div
                                             key={participant.id}
-                                            className="p-2 border rounded-md hover:bg-muted/50 cursor-pointer"
+                                            className={`p-2 border rounded-md hover:bg-muted/50 cursor-pointer ${
+                                                searchResults.some(r => r.id === participant.id) ? 'bg-green-100 border-green-400' : ''
+                                            }`}
                                             onClick={() => {
                                                 setSearchUnit(participant.unit);
-                                                handleSearchUnit();
+                                                setSearchResults([participant]);
                                             }}
                                         >
                                             <div className="flex items-center justify-between">
@@ -1128,9 +1440,13 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                     {participant.block && `Bl. ${participant.block} - `}
                                                     Un. {participant.unit}
                                                 </span>
-                                                <Badge variant="outline">
-                                                    {participant.drawOrder}º
-                                                </Badge>
+                                                <div className="flex items-center gap-2">
+                                                    {participant.hasSpecialNeeds && <Badge variant="pcd" className="text-xs">PcD</Badge>}
+                                                    {participant.isElderly && <Badge variant="elderly" className="text-xs">Idoso</Badge>}
+                                                    <Badge variant="outline">
+                                                        {participant.drawOrder}º
+                                                    </Badge>
+                                                </div>
                                             </div>
                                             <div className="text-sm text-muted-foreground">
                                                 {participant.name}
@@ -1141,21 +1457,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             </ScrollArea>
                         </div>
 
-                        <div className="flex gap-2">
-                            <Button
-                                onClick={handleSearchUnit}
-                                className="flex-1 gradient-primary text-white"
-                            >
-                                <Search className="mr-2 h-4 w-4" />
-                                Buscar
-                            </Button>
-                            <Button
-                                onClick={() => setSearchUnitDialog(false)}
-                                variant="outline"
-                            >
-                                Fechar
-                            </Button>
-                        </div>
+                        <Button onClick={() => setSearchUnitDialog(false)} variant="outline" className="w-full">
+                            Fechar
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>
@@ -1184,7 +1488,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                         className={`cursor-pointer transition-all ${spotToReplace?.id === spot.id
                                             ? 'border-2 border-red-500 bg-red-50'
                                             : 'hover:border-primary'
-                                            }`}
+                                        }`}
                                         onClick={() => setSpotToReplace(spot)}
                                     >
                                         <CardContent className="p-3">
@@ -1205,143 +1509,47 @@ export default function LotteryChoiceSystem(): JSX.Element {
                         {spotToReplace && (
                             <div className="space-y-2">
                                 <Label className="text-lg font-semibold">2. Selecione a nova vaga:</Label>
-
-                                {/* Filtros */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Buscar</Label>
-                                        <div className="relative">
-                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                            <Input
-                                                placeholder="Número ou andar..."
-                                                value={searchSpot}
-                                                onChange={(e) => setSearchSpot(e.target.value)}
-                                                className="pl-9"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Filtrar por tipo</Label>
-                                        <select
-                                            className="w-full p-2 border rounded-md"
-                                            value={filterType}
-                                            onChange={(e) => setFilterType(e.target.value)}
-                                        >
-                                            <option value="all">Todas</option>
-                                            <option value="pcd">PcD</option>
-                                            <option value="elderly">Idoso</option>
-                                            <option value="large">Grande</option>
-                                            <option value="small">Pequena</option>
-                                            <option value="covered">Coberta</option>
-                                            <option value="uncovered">Descoberta</option>
-                                        </select>
-                                    </div>
-                                </div>
-
                                 <ScrollArea className="h-[300px] border rounded-lg p-4">
-                                    {filteredSpotsForEdit.length === 0 ? (
-                                        <div className="text-center py-8 text-muted-foreground">
-                                            <ParkingSquare className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                                            <p>Nenhuma vaga disponível</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {filteredSpotsForEdit.map((spot: ParkingSpot) => {
-                                                const types = Array.isArray(spot.type) ? spot.type : [spot.type];
-                                                const isPcd = types.includes('Vaga PcD');
-                                                const isElderly = types.includes('Vaga Idoso');
-                                                const isLarge = types.includes('Vaga Grande');
-                                                const isSmall = types.includes('Vaga Pequena');
-                                                const isLinked = types.includes('Vaga Presa');
-
-                                                return (
-                                                    <Card
-                                                        key={spot.id}
-                                                        className={`cursor-pointer transition-all ${newSpotForEdit?.id === spot.id
-                                                            ? 'border-2 border-green-500 bg-green-50'
-                                                            : 'hover:border-primary hover:shadow-lg'
-                                                            }`}
-                                                        onClick={() => setNewSpotForEdit(spot)}
-                                                    >
-                                                        <CardHeader className="pb-3">
-                                                            <CardTitle className="text-xl flex items-center gap-2">
-                                                                <ParkingSquare className="h-5 w-5" />
-                                                                Vaga {spot.number}
-                                                            </CardTitle>
-                                                            <CardDescription className="text-base font-medium">{spot.floor}</CardDescription>
-                                                        </CardHeader>
-                                                        <CardContent>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {isPcd && (
-                                                                    <Badge variant="pcd" className="text-xs font-semibold px-2 py-1">
-                                                                        ♿ PcD
-                                                                    </Badge>
-                                                                )}
-                                                                {isElderly && (
-                                                                    <Badge variant="elderly" className="text-xs font-semibold px-2 py-1">
-                                                                        👴 Idoso
-                                                                    </Badge>
-                                                                )}
-                                                                {isLarge && (
-                                                                    <Badge variant="large" className="text-xs font-semibold px-2 py-1">
-                                                                        🚙 Grande
-                                                                    </Badge>
-                                                                )}
-                                                                {isSmall && (
-                                                                    <Badge variant="small" className="text-xs font-semibold px-2 py-1">
-                                                                        🚗 Pequena
-                                                                    </Badge>
-                                                                )}
-                                                                {spot.isCovered && (
-                                                                    <Badge variant="covered" className="text-xs font-semibold px-2 py-1">
-                                                                        🏠 Coberta
-                                                                    </Badge>
-                                                                )}
-                                                                {spot.isUncovered && (
-                                                                    <Badge variant="uncovered" className="text-xs font-semibold px-2 py-1">
-                                                                        ☀️ Descoberta
-                                                                    </Badge>
-                                                                )}
-                                                                {isLinked && (
-                                                                    <Badge variant="linked" className="text-xs font-semibold px-2 py-1">
-                                                                        🔗 Presa
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                        {availableSpots.map((spot: ParkingSpot) => {
+                                            const badges = getSpotBadges(spot);
+                                            return (
+                                                <Card
+                                                    key={spot.id}
+                                                    className={`cursor-pointer transition-all ${newSpotForEdit?.id === spot.id
+                                                        ? 'border-2 border-green-500 bg-green-50'
+                                                        : 'hover:border-primary'
+                                                    }`}
+                                                    onClick={() => setNewSpotForEdit(spot)}
+                                                >
+                                                    <CardContent className="p-3">
+                                                        <div className="font-bold">Vaga {spot.number}</div>
+                                                        <div className="text-sm text-muted-foreground">{spot.floor}</div>
+                                                        <div className="flex flex-wrap gap-1 mt-2">
+                                                            {badges.map((badge, idx) => (
+                                                                <Badge key={idx} variant={badge.variant as any} className="text-xs">
+                                                                    {badge.icon} {badge.label}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            );
+                                        })}
+                                    </div>
                                 </ScrollArea>
                             </div>
                         )}
 
-                        {/* RESUMO DA TROCA */}
-                        {spotToReplace && newSpotForEdit && (
-                            <div className="p-4 border-2 border-primary rounded-lg bg-primary/5">
-                                <p className="font-semibold mb-2">Resumo da alteração:</p>
-                                <div className="flex items-center gap-2">
-                                    <Badge variant="destructive" className="text-sm">
-                                        Vaga {spotToReplace.number}
-                                    </Badge>
-                                    <ArrowRight className="h-4 w-4" />
-                                    <Badge variant="default" className="bg-green-500 text-sm">
-                                        Vaga {newSpotForEdit.number}
-                                    </Badge>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="flex gap-2">
+                        {/* BOTÕES */}
+                        <div className="flex gap-2 justify-end">
                             <Button
                                 onClick={handleConfirmEditSpot}
                                 disabled={!spotToReplace || !newSpotForEdit}
-                                className="flex-1 gradient-primary text-white"
+                                className="gradient-primary text-white"
                             >
                                 <Check className="mr-2 h-4 w-4" />
-                                Confirmar Alteração
+                                Confirmar Troca
                             </Button>
                             <Button
                                 onClick={() => {
@@ -1386,17 +1594,11 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button
-                                            onClick={handleConfirmSpot}
-                                            className="gradient-primary text-white"
-                                        >
+                                        <Button onClick={handleConfirmSpot} className="gradient-primary text-white">
                                             <Check className="mr-2 h-4 w-4" />
                                             Confirmar
                                         </Button>
-                                        <Button
-                                            onClick={handleCancelSpotSelection}
-                                            variant="outline"
-                                        >
+                                        <Button onClick={handleCancelSpotSelection} variant="outline">
                                             <X className="mr-2 h-4 w-4" />
                                             Cancelar
                                         </Button>
@@ -1427,17 +1629,21 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                     onChange={(e) => setFilterType(e.target.value)}
                                 >
                                     <option value="all">Todas</option>
-                                    <option value="pcd">PcD</option>
-                                    <option value="elderly">Idoso</option>
-                                    <option value="large">Grande</option>
-                                    <option value="small">Pequena</option>
-                                    <option value="covered">Coberta</option>
-                                    <option value="uncovered">Descoberta</option>
+                                    <option value="pcd">Vaga PcD</option>
+                                    <option value="elderly">Vaga Idoso</option>
+                                    <option value="small">Vaga Pequena</option>
+                                    <option value="large">Vaga Grande</option>
+                                    <option value="motorcycle">Vaga Motocicleta</option>
+                                    <option value="common">Vaga Comum</option>
+                                    <option value="covered">Vaga Coberta</option>
+                                    <option value="uncovered">Vaga Descoberta</option>
+                                    <option value="free">Vaga Livre</option>
+                                    <option value="linked">Vaga Presa</option>
                                 </select>
                             </div>
                         </div>
 
-                        {/* Lista de Vagas - TAMANHO MAIOR */}
+                        {/* Lista de Vagas com TODAS as prioridades */}
                         <ScrollArea className="h-[450px] border rounded-lg p-4">
                             {filteredSpots.length === 0 ? (
                                 <div className="text-center py-8 text-muted-foreground">
@@ -1447,12 +1653,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {filteredSpots.map((spot: ParkingSpot) => {
-                                        const types = Array.isArray(spot.type) ? spot.type : [spot.type];
-                                        const isPcd = types.includes('Vaga PcD');
-                                        const isElderly = types.includes('Vaga Idoso');
-                                        const isLarge = types.includes('Vaga Grande');
-                                        const isSmall = types.includes('Vaga Pequena');
-                                        const isLinked = types.includes('Vaga Presa');
+                                        const badges = getSpotBadges(spot);
 
                                         return (
                                             <Card
@@ -1460,7 +1661,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                 className={`cursor-pointer transition-all ${pendingSpot?.id === spot.id
                                                     ? 'border-2 border-primary bg-primary/10'
                                                     : 'hover:border-primary hover:shadow-lg'
-                                                    }`}
+                                                }`}
                                                 onClick={() => handleSelectSpot(spot)}
                                             >
                                                 <CardHeader className="pb-3">
@@ -1472,39 +1673,14 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                 </CardHeader>
                                                 <CardContent>
                                                     <div className="flex flex-wrap gap-2">
-                                                        {isPcd && (
-                                                            <Badge variant="pcd" className="text-sm font-semibold px-3 py-1">
-                                                                ♿ PcD
+                                                        {badges.map((badge, idx) => (
+                                                            <Badge key={idx} variant={badge.variant as any} className="text-sm font-semibold px-3 py-1">
+                                                                {badge.icon} {badge.label}
                                                             </Badge>
-                                                        )}
-                                                        {isElderly && (
-                                                            <Badge variant="elderly" className="text-sm font-semibold px-3 py-1">
-                                                                👴 Idoso
-                                                            </Badge>
-                                                        )}
-                                                        {isLarge && (
-                                                            <Badge variant="large" className="text-sm font-semibold px-3 py-1">
-                                                                🚙 Grande
-                                                            </Badge>
-                                                        )}
-                                                        {isSmall && (
-                                                            <Badge variant="small" className="text-sm font-semibold px-3 py-1">
-                                                                🚗 Pequena
-                                                            </Badge>
-                                                        )}
-                                                        {spot.isCovered && (
-                                                            <Badge variant="covered" className="text-sm font-semibold px-3 py-1">
-                                                                🏠 Coberta
-                                                            </Badge>
-                                                        )}
-                                                        {spot.isUncovered && (
-                                                            <Badge variant="uncovered" className="text-sm font-semibold px-3 py-1">
-                                                                ☀️ Descoberta
-                                                            </Badge>
-                                                        )}
-                                                        {isLinked && (
-                                                            <Badge variant="linked" className="text-sm font-semibold px-3 py-1">
-                                                                🔗 Presa
+                                                        ))}
+                                                        {badges.length === 0 && (
+                                                            <Badge variant="common" className="text-sm font-semibold px-3 py-1">
+                                                                🅿️ Comum
                                                             </Badge>
                                                         )}
                                                     </div>
