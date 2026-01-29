@@ -724,6 +724,217 @@ export default function LotteryChoiceSystem(): JSX.Element {
     };
 
     // ============================================================================
+    // 📄 FUNÇÃO: GERAR PDF APENAS COM ORDEM DOS PARTICIPANTES (SEM VAGAS)
+    // ============================================================================
+    const handleGeneratePDFParticipantOrder = (): void => {
+        if (drawnOrder.length === 0) {
+            toast({
+                title: "Nenhum sorteio",
+                description: "Realize o sorteio da ordem primeiro.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        const companyType = selectedBuilding?.company || 'exvagas';
+        const isExEventos = companyType === 'exvagas';
+        const companyLogo = isExEventos ? '/src/assets/exeventos-logo.png' : '/src/assets/mageventos-logo.jpg';
+        const companyName = isExEventos ? 'Ex Eventos' : 'Mag Eventos';
+        const companyColor = isExEventos ? '#4f46e5' : '#d4a03e';
+
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Ordem do Sorteio - ${selectedBuilding?.name || 'Condomínio'}</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        margin: 40px;
+                        color: #333;
+                    }
+                    .header {
+                        text-align: center;
+                        margin-bottom: 40px;
+                        border-bottom: 2px solid ${companyColor};
+                        padding-bottom: 20px;
+                    }
+                    .header .company-name {
+                        font-size: 24px;
+                        font-weight: bold;
+                        color: ${companyColor};
+                        margin-bottom: 5px;
+                    }
+                    .header h1 {
+                        color: ${companyColor};
+                        margin: 0;
+                        font-size: 28px;
+                    }
+                    .header p {
+                        color: #666;
+                        margin: 10px 0 0 0;
+                        font-size: 14px;
+                    }
+                    .summary {
+                        background: #f8fafc;
+                        padding: 20px;
+                        border-radius: 8px;
+                        margin-bottom: 30px;
+                    }
+                    .summary h2 {
+                        margin: 0 0 15px 0;
+                        color: #1e293b;
+                        font-size: 18px;
+                    }
+                    .summary-item {
+                        display: inline-block;
+                        margin-right: 30px;
+                        margin-bottom: 10px;
+                    }
+                    .summary-item strong {
+                        color: ${companyColor};
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 30px;
+                    }
+                    th, td {
+                        padding: 12px;
+                        text-align: left;
+                        border-bottom: 1px solid #e2e8f0;
+                    }
+                    th {
+                        background-color: #f8fafc;
+                        font-weight: 600;
+                        color: #1e293b;
+                    }
+                    tr:nth-child(even) {
+                        background-color: #f8fafc;
+                    }
+                    .position {
+                        font-weight: bold;
+                        color: ${companyColor};
+                        text-align: center;
+                        width: 60px;
+                    }
+                    .priority {
+                        display: inline-block;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        margin-left: 5px;
+                    }
+                    .priority.pcd { background: #9333ea; color: white; }
+                    .priority.elderly { background: #38bdf8; color: white; }
+                    .priority.delinquent { background: #dc2626; color: white; }
+                    .priority.normal { background: #16a34a; color: white; }
+                    .footer {
+                        text-align: center;
+                        font-size: 12px;
+                        color: #666;
+                        border-top: 1px solid #e2e8f0;
+                        padding-top: 20px;
+                        margin-top: 40px;
+                    }
+                    @media print {
+                        body { margin: 20px; }
+                        .header { page-break-after: avoid; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="company-name">${companyName}</div>
+                    <h1>Ordem do Sorteio de Escolha</h1>
+                    ${selectedBuilding?.name ? `<p style="font-size: 22px; font-weight: 700; color: ${companyColor}; margin-top: 10px; margin-bottom: 5px;">Condomínio: ${selectedBuilding.name}</p>` : ''}
+                    <p>Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+                </div>
+
+                <div class="summary">
+                    <h2>Resumo</h2>
+                    <div class="summary-item">
+                        <strong>Total de Participantes:</strong> ${drawnOrder.length}
+                    </div>
+                    <div class="summary-item">
+                        <strong>PcD:</strong> ${drawnOrder.filter(p => p.hasSpecialNeeds).length}
+                    </div>
+                    <div class="summary-item">
+                        <strong>Idosos:</strong> ${drawnOrder.filter(p => p.isElderly && !p.hasSpecialNeeds).length}
+                    </div>
+                    <div class="summary-item">
+                        <strong>Inadimplentes:</strong> ${drawnOrder.filter(p => p.isUpToDate === false).length}
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="position">#</th>
+                            <th>Bloco</th>
+                            <th>Unidade</th>
+                            <th>Nome</th>
+                            <th>Prioridade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${drawnOrder.map((participant, index) => {
+                            let priorityBadge = '';
+                            if (participant.hasSpecialNeeds) {
+                                priorityBadge = '<span class="priority pcd">PcD</span>';
+                            } else if (participant.isElderly) {
+                                priorityBadge = '<span class="priority elderly">Idoso</span>';
+                            } else if (participant.isUpToDate === false) {
+                                priorityBadge = '<span class="priority delinquent">Inadimplente</span>';
+                            } else {
+                                priorityBadge = '<span class="priority normal">Normal</span>';
+                            }
+                            
+                            return `
+                                <tr>
+                                    <td class="position">${participant.drawOrder}º</td>
+                                    <td>${participant.block || '-'}</td>
+                                    <td>${participant.unit}</td>
+                                    <td>${participant.name || '-'}</td>
+                                    <td>${priorityBadge}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+
+                <div class="footer">
+                    <p><strong>${companyName}</strong></p>
+                    <p>Este documento contém apenas a ordem sorteada dos participantes.</p>
+                    <p>Gerado automaticamente pelo Sistema de Sorteio Eletrônico</p>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.open();
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+
+            printWindow.onload = () => {
+                setTimeout(() => {
+                    printWindow.print();
+                }, 250);
+            };
+        }
+
+        toast({
+            title: "PDF gerado!",
+            description: "O PDF com a ordem dos participantes foi gerado.",
+        });
+    };
+
+    // ============================================================================
     // 📄 FUNÇÃO: GERAR PDF POR VAGA
     // ============================================================================
     const handleGeneratePDFBySpot = (): void => {
@@ -992,7 +1203,13 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                 Ordem de Unidade
                             </Button>
 
-                            {/* BOTÕES DE EXPORTAÇÃO */}
+                            {/* BOTÃO PDF ORDEM DOS PARTICIPANTES (sempre visível após sorteio) */}
+                            <Button onClick={handleGeneratePDFParticipantOrder} variant="outline">
+                                <FileText className="mr-2 h-4 w-4" />
+                                PDF Ordem
+                            </Button>
+
+                            {/* BOTÕES DE EXPORTAÇÃO COM VAGAS */}
                             {drawnOrder.some((p: DrawnParticipant) => p.allocatedSpots.length > 0) && (
                                 <>
                                     <Button onClick={handleGeneratePDFByParticipant} variant="outline">
