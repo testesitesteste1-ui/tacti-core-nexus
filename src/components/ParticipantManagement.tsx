@@ -381,7 +381,7 @@ export const ParticipantManagement = () => {
     if (participant.prefersUnlinkedSpot) badges.push({ label: 'Pref. por Vaga Livre', variant: 'unlinked' });
     if (participant.prefersLinkedSpot) badges.push({ label: 'Pref. por Vaga Presa', variant: 'linked' });
     if (participant.prefersSmallSpot) badges.push({ label: 'Pref. por Vaga Pequena', variant: 'small' });
-    if (!participant.isUpToDate) badges.push({ label: 'Inadimplente', variant: 'destructive' });
+    // Inadimplente é mantido internamente mas não exibido visualmente
     if (participant.numberOfSpots && participant.numberOfSpots > 1) {
       badges.push({ label: `${participant.numberOfSpots} Vagas`, variant: 'default' });
     }
@@ -915,16 +915,7 @@ export const ParticipantManagement = () => {
                       )}
                     </div>
                   
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="isUpToDate"
-                      checked={!formData.isUpToDate}
-                      onCheckedChange={(checked) => 
-                        setFormData({...formData, isUpToDate: !checked})
-                      }
-                    />
-                    <Label htmlFor="isUpToDate">Inadimplente</Label>
-                  </div>
+                  {/* Campo Inadimplente oculto - mantido internamente */}
                 </div>
               </div>
 
@@ -1026,11 +1017,7 @@ export const ParticipantManagement = () => {
                               Vaga Pequena
                             </Badge>
                           )}
-                          {!row.isUpToDate && (
-                            <Badge variant="destructive" className="text-xs">
-                              Inadimplente
-                            </Badge>
-                          )}
+                          {/* Inadimplente oculto */}
                           {!row.hasSpecialNeeds && !row.isElderly && !row.hasLargeCar &&
                             !row.prefersCovered && !row.prefersUncovered && !row.prefersLinkedSpot &&
                             !row.prefersUnlinkedSpot && !row.prefersSmallSpot && row.isUpToDate && (
@@ -1145,17 +1132,7 @@ export const ParticipantManagement = () => {
                     />
                     <Label htmlFor="edit-hasLargeCar">Veículo Grande</Label>
                   </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="edit-isUpToDate"
-                      checked={!editingImportData.isUpToDate}
-                      onCheckedChange={(checked) => 
-                        setEditingImportData({...editingImportData, isUpToDate: !checked})
-                      }
-                    />
-                    <Label htmlFor="edit-isUpToDate">Inadimplente</Label>
-                  </div>
+                  {/* Campo Inadimplente oculto */}
                 </div>
               </div>
 
@@ -1224,7 +1201,7 @@ export const ParticipantManagement = () => {
                   <SelectItem value="PrefDescoberta">Pref. por Vaga Descoberta</SelectItem>
                   <SelectItem value="PrefLivre">Pref. por Vaga Livre</SelectItem>
                   <SelectItem value="PrefPresa">Pref. por Vaga Presa</SelectItem>
-                  <SelectItem value="Inadimplente">Inadimplente</SelectItem>
+                  {/* Inadimplente removido do filtro */}
                 </SelectContent>
               </Select>
             </div>

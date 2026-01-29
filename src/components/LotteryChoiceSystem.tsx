@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import {
     Shuffle, Users, Car, Trophy, Clock, CheckCircle, ArrowRight,
     RotateCcw, ParkingSquare, ListOrdered, Search, AlertTriangle, Undo2,
-    FileText, FileSpreadsheet, Edit, Check, X, SkipForward, UserX, Dices
+    FileText, FileSpreadsheet, Edit, Check, X, SkipForward, UserX, Dices,
+    Link, Plus, Trash2, Hand
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppContext } from '@/context/AppContext';
@@ -84,6 +85,16 @@ export default function LotteryChoiceSystem(): JSX.Element {
     const [selectedParticipantToEdit, setSelectedParticipantToEdit] = useState<DrawnParticipant | null>(null);
     const [spotToReplace, setSpotToReplace] = useState<ParkingSpot | null>(null);
     const [newSpotForEdit, setNewSpotForEdit] = useState<ParkingSpot | null>(null);
+
+    // Estado para pré-alocações
+    const [preAllocations, setPreAllocations] = useState<Map<string, string[]>>(new Map());
+    const [isPreAllocationOpen, setIsPreAllocationOpen] = useState<boolean>(false);
+    const [selectedPreParticipant, setSelectedPreParticipant] = useState<string>('');
+    const [selectedPreSpot, setSelectedPreSpot] = useState<string>('');
+
+    // Estado para segunda chance dos ausentes
+    const [showSecondChanceDialog, setShowSecondChanceDialog] = useState<boolean>(false);
+    const [absentToGiveChance, setAbsentToGiveChance] = useState<DrawnParticipant | null>(null);
 
     // ============================================================================
     // 💾 PERSISTÊNCIA DO SORTEIO
@@ -272,23 +283,43 @@ export default function LotteryChoiceSystem(): JSX.Element {
             ...shuffledDelinquent
         ];
 
-        const drawn: DrawnParticipant[] = orderedParticipants.map((p, index) => ({
-            ...p,
-            drawOrder: index + 1,
-            allocatedSpots: [],
-            status: index === 0 ? 'choosing' : 'waiting',
-            isAbsent: false
-        }));
+        // Aplicar pré-alocações
+        const preAllocatedSpotIds = getPreAllocatedSpotIds();
+        let remainingSpots = buildingSpots.filter(s => !preAllocatedSpotIds.includes(s.id));
+
+        const drawn: DrawnParticipant[] = orderedParticipants.map((p, index) => {
+            const participantPreAllocatedSpotIds = preAllocations.get(p.id) || [];
+            const participantPreAllocatedSpots = buildingSpots.filter(s => participantPreAllocatedSpotIds.includes(s.id));
+            
+            const spotsNeeded = p.numberOfSpots || 1;
+            const isComplete = participantPreAllocatedSpots.length >= spotsNeeded;
+            
+            return {
+                ...p,
+                drawOrder: index + 1,
+                allocatedSpots: participantPreAllocatedSpots,
+                status: isComplete ? 'completed' : (index === 0 ? 'choosing' : 'waiting'),
+                isAbsent: false
+            } as DrawnParticipant;
+        });
+
+        // Encontrar primeiro participante que ainda precisa escolher
+        let firstChoosingIndex = drawn.findIndex(p => p.status !== 'completed');
+        if (firstChoosingIndex >= 0) {
+            drawn[firstChoosingIndex].status = 'choosing';
+        }
 
         setDrawnOrder(drawn);
-        setCurrentTurnIndex(0);
-        setAvailableSpots(buildingSpots);
+        setCurrentTurnIndex(firstChoosingIndex >= 0 ? firstChoosingIndex : 0);
+        setAvailableSpots(remainingSpots);
         setSessionStarted(true);
         setIsDrawing(false);
 
+        const preAllocatedCount = Array.from(preAllocations.values()).flat().length;
+
         toast({
             title: "Ordem sorteada!",
-            description: `${drawn.length} participantes na fila. PcD: ${pcdParticipants.length}, Idosos: ${elderlyParticipants.length}, Normais: ${normalParticipants.length}, Inadimplentes: ${delinquentParticipants.length}`,
+            description: `${drawn.length} participantes na fila. ${preAllocatedCount > 0 ? `${preAllocatedCount} pré-alocação(ões) aplicada(s).` : ''}`,
         });
     };
 
@@ -492,10 +523,8 @@ export default function LotteryChoiceSystem(): JSX.Element {
         const absentWithoutSpots = finalOrder.filter(p => p.status === 'skipped' && p.allocatedSpots.length === 0);
         
         if (absentWithoutSpots.length > 0 && remainingSpots.length > 0) {
-            toast({
-                title: "Sorteio quase completo!",
-                description: `Ainda há ${absentWithoutSpots.length} ausente(s) e ${remainingSpots.length} vaga(s). Use "Sortear Ausentes" para alocar.`,
-            });
+            // Mostrar opção de segunda chance antes de finalizar
+            setShowSecondChanceDialog(true);
             return;
         }
 
@@ -505,6 +534,117 @@ export default function LotteryChoiceSystem(): JSX.Element {
         toast({
             title: "Sorteio Finalizado! 🎉",
             description: "Todos os participantes foram processados.",
+        });
+    };
+
+    // ============================================================================
+    // 🔒 FUNÇÕES DE PRÉ-ALOCAÇÃO
+    // ============================================================================
+    const handleAddPreAllocation = (): void => {
+        if (!selectedPreParticipant || !selectedPreSpot) {
+            toast({
+                title: "Erro",
+                description: "Selecione um participante e uma vaga.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        const newPreAllocations = new Map(preAllocations);
+        const currentSpots = newPreAllocations.get(selectedPreParticipant) || [];
+        
+        if (currentSpots.includes(selectedPreSpot)) {
+            toast({
+                title: "Erro",
+                description: "Esta vaga já está pré-alocada para este participante.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        newPreAllocations.set(selectedPreParticipant, [...currentSpots, selectedPreSpot]);
+        setPreAllocations(newPreAllocations);
+        setSelectedPreSpot('');
+
+        toast({
+            title: "Pré-alocação adicionada!",
+            description: "A vaga foi reservada para o participante.",
+        });
+    };
+
+    const handleRemovePreAllocation = (participantId: string, spotId: string): void => {
+        const newPreAllocations = new Map(preAllocations);
+        const currentSpots = newPreAllocations.get(participantId) || [];
+        const updatedSpots = currentSpots.filter(s => s !== spotId);
+        
+        if (updatedSpots.length === 0) {
+            newPreAllocations.delete(participantId);
+        } else {
+            newPreAllocations.set(participantId, updatedSpots);
+        }
+        
+        setPreAllocations(newPreAllocations);
+        toast({
+            title: "Pré-alocação removida",
+            description: "A vaga foi liberada.",
+        });
+    };
+
+    const getPreAllocatedSpotIds = (): string[] => {
+        const spotIds: string[] = [];
+        preAllocations.forEach((spots) => {
+            spotIds.push(...spots);
+        });
+        return spotIds;
+    };
+
+    // ============================================================================
+    // 🤚 FUNÇÕES DE SEGUNDA CHANCE PARA AUSENTES
+    // ============================================================================
+    const handleGiveSecondChance = (participant: DrawnParticipant): void => {
+        setAbsentToGiveChance(participant);
+    };
+
+    const handleConfirmSecondChance = (): void => {
+        if (!absentToGiveChance) return;
+
+        const participantIndex = drawnOrder.findIndex(p => p.id === absentToGiveChance.id);
+        if (participantIndex === -1) return;
+
+        const updatedOrder = [...drawnOrder];
+        updatedOrder[participantIndex] = {
+            ...updatedOrder[participantIndex],
+            status: 'choosing',
+            isAbsent: false
+        };
+
+        // Encontrar onde inserir na ordem atual
+        setDrawnOrder(updatedOrder);
+        setCurrentTurnIndex(participantIndex);
+        setAbsentToGiveChance(null);
+        setShowSecondChanceDialog(false);
+
+        toast({
+            title: "Segunda chance concedida! 🎉",
+            description: `${absentToGiveChance.block ? `Bloco ${absentToGiveChance.block} - ` : ''}Unidade ${absentToGiveChance.unit} pode escolher agora.`,
+        });
+    };
+
+    const handleSkipSecondChance = (): void => {
+        // Continuar com o sorteio aleatório para ausentes
+        setShowSecondChanceDialog(false);
+        handleRandomizeAbsent();
+    };
+
+    const handleFinalizeWithoutAbsent = (): void => {
+        // Finalizar sem dar vagas aos ausentes
+        setShowSecondChanceDialog(false);
+        setSessionFinalized(true);
+        saveChoiceResultsToPublic(drawnOrder.filter(p => p.allocatedSpots.length > 0));
+
+        toast({
+            title: "Sorteio Finalizado! 🎉",
+            description: "Participantes ausentes não receberam vagas.",
         });
     };
 
@@ -865,9 +1005,6 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     <div class="summary-item">
                         <strong>Idosos:</strong> ${drawnOrder.filter(p => p.isElderly && !p.hasSpecialNeeds).length}
                     </div>
-                    <div class="summary-item">
-                        <strong>Inadimplentes:</strong> ${drawnOrder.filter(p => p.isUpToDate === false).length}
-                    </div>
                 </div>
 
                 <table>
@@ -887,8 +1024,6 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                 priorityBadge = '<span class="priority pcd">PcD</span>';
                             } else if (participant.isElderly) {
                                 priorityBadge = '<span class="priority elderly">Idoso</span>';
-                            } else if (participant.isUpToDate === false) {
-                                priorityBadge = '<span class="priority delinquent">Inadimplente</span>';
                             } else {
                                 priorityBadge = '<span class="priority normal">Normal</span>';
                             }
@@ -1024,8 +1159,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                         'Unidade': participant.unit,
                         'Nome': participant.name || '',
                         'Prioridade': participant.hasSpecialNeeds ? 'PcD' : 
-                                     participant.isElderly ? 'Idoso' : 
-                                     participant.isUpToDate === false ? 'Inadimplente' : 'Normal',
+                                     participant.isElderly ? 'Idoso' : 'Normal',
                         'Ausente': participant.isAbsent ? 'Sim' : 'Não',
                         'Vaga Nº': index + 1,
                         'Número da Vaga': spot.number,
@@ -1237,6 +1371,16 @@ export default function LotteryChoiceSystem(): JSX.Element {
                         </>
                     )}
 
+                    {!sessionStarted && (
+                        <Button
+                            onClick={() => setIsPreAllocationOpen(true)}
+                            variant="outline"
+                        >
+                            <Link className="mr-2 h-4 w-4" />
+                            Pré-Alocação
+                        </Button>
+                    )}
+
                     {!sessionStarted ? (
                         <Button
                             onClick={handleDrawOrder}
@@ -1368,7 +1512,6 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             Vez Atual: {currentParticipant.drawOrder}º Sorteado
                             {currentParticipant.hasSpecialNeeds && <Badge variant="pcd">PcD</Badge>}
                             {currentParticipant.isElderly && <Badge variant="elderly">Idoso</Badge>}
-                            {currentParticipant.isUpToDate === false && <Badge variant="destructive">Inadimplente</Badge>}
                         </CardTitle>
                         <CardDescription>
                             {currentParticipant.block && `Bloco ${currentParticipant.block} - `}
@@ -1456,7 +1599,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             Ordem do Sorteio
                         </CardTitle>
                         <CardDescription>
-                            Ordem: PcD → Idosos → Normais → Inadimplentes
+                            Ordem: PcD → Idosos → Normais
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -1494,7 +1637,6 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                         Unidade {participant.unit}
                                                         {participant.hasSpecialNeeds && <Badge variant="pcd" className="text-xs">PcD</Badge>}
                                                         {participant.isElderly && <Badge variant="elderly" className="text-xs">Idoso</Badge>}
-                                                        {participant.isUpToDate === false && <Badge variant="destructive" className="text-xs">Inad.</Badge>}
                                                     </div>
                                                     <div className="text-sm text-muted-foreground">
                                                         {participant.name}
@@ -1916,6 +2058,194 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                 setPendingSpot(null);
                             }}>
                                 Fechar
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* DIALOG: PRÉ-ALOCAÇÃO */}
+            <Dialog open={isPreAllocationOpen} onOpenChange={setIsPreAllocationOpen}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Link className="h-5 w-5" />
+                            Pré-Alocação de Vagas
+                        </DialogTitle>
+                        <DialogDescription>
+                            Reserve vagas específicas para participantes antes do sorteio.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        {/* Adicionar nova pré-alocação */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label>Participante</Label>
+                                <select
+                                    className="w-full p-2 border rounded-md"
+                                    value={selectedPreParticipant}
+                                    onChange={(e) => setSelectedPreParticipant(e.target.value)}
+                                >
+                                    <option value="">Selecione...</option>
+                                    {buildingParticipants.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.block && `${p.block} - `}Unid. {p.unit}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Vaga</Label>
+                                <select
+                                    className="w-full p-2 border rounded-md"
+                                    value={selectedPreSpot}
+                                    onChange={(e) => setSelectedPreSpot(e.target.value)}
+                                >
+                                    <option value="">Selecione...</option>
+                                    {buildingSpots
+                                        .filter(s => !getPreAllocatedSpotIds().includes(s.id))
+                                        .map((s) => (
+                                            <option key={s.id} value={s.id}>
+                                                Vaga {s.number} - {s.floor}
+                                            </option>
+                                        ))
+                                    }
+                                </select>
+                            </div>
+                            <div className="flex items-end">
+                                <Button onClick={handleAddPreAllocation} className="w-full">
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Adicionar
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Lista de pré-alocações */}
+                        {preAllocations.size > 0 && (
+                            <div className="space-y-2">
+                                <Label>Pré-alocações configuradas ({preAllocations.size})</Label>
+                                <ScrollArea className="h-[200px] border rounded-lg p-3">
+                                    <div className="space-y-2">
+                                        {Array.from(preAllocations.entries()).map(([participantId, spotIds]) => {
+                                            const participant = buildingParticipants.find(p => p.id === participantId);
+                                            return spotIds.map((spotId) => {
+                                                const spot = buildingSpots.find(s => s.id === spotId);
+                                                return (
+                                                    <div key={`${participantId}-${spotId}`} className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                                                        <div className="flex items-center gap-3">
+                                                            <Badge variant="secondary">
+                                                                {participant?.block && `${participant.block} - `}Unid. {participant?.unit}
+                                                            </Badge>
+                                                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                                            <Badge variant="outline">
+                                                                Vaga {spot?.number} - {spot?.floor}
+                                                            </Badge>
+                                                        </div>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleRemovePreAllocation(participantId, spotId)}
+                                                        >
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </div>
+                                                );
+                                            });
+                                        })}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        )}
+
+                        {preAllocations.size === 0 && (
+                            <div className="text-center py-6 text-muted-foreground">
+                                <Link className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                                <p>Nenhuma pré-alocação configurada</p>
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* DIALOG: SEGUNDA CHANCE PARA AUSENTES */}
+            <Dialog open={showSecondChanceDialog} onOpenChange={setShowSecondChanceDialog}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Hand className="h-5 w-5 text-orange-500" />
+                            Segunda Chance para Ausentes
+                        </DialogTitle>
+                        <DialogDescription>
+                            Há {drawnOrder.filter(p => p.status === 'skipped' && p.allocatedSpots.length === 0).length} participante(s) 
+                            ausente(s) e {availableSpots.length} vaga(s) disponível(is).
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                            Escolha o que fazer com os participantes ausentes:
+                        </p>
+
+                        {/* Lista de ausentes */}
+                        <ScrollArea className="h-[200px] border rounded-lg p-3">
+                            <div className="space-y-2">
+                                {drawnOrder.filter(p => p.status === 'skipped' && p.allocatedSpots.length === 0).map((participant) => (
+                                    <div key={participant.id} className="flex items-center justify-between p-2 bg-orange-50 border border-orange-200 rounded-lg">
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className="border-orange-400 text-orange-600">
+                                                {participant.drawOrder}º
+                                            </Badge>
+                                            <span className="font-medium">
+                                                {participant.block && `Bloco ${participant.block} - `}Unidade {participant.unit}
+                                            </span>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="border-green-500 text-green-600 hover:bg-green-50"
+                                            onClick={() => handleGiveSecondChance(participant)}
+                                        >
+                                            <Hand className="mr-1 h-3 w-3" />
+                                            Dar Chance
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+
+                        {/* Confirmação de dar chance a um participante */}
+                        {absentToGiveChance && (
+                            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <p className="font-medium text-green-700 mb-2">
+                                    Confirmar segunda chance para:
+                                </p>
+                                <div className="flex items-center justify-between">
+                                    <Badge variant="secondary" className="bg-green-100">
+                                        {absentToGiveChance.block && `Bloco ${absentToGiveChance.block} - `}Unidade {absentToGiveChance.unit}
+                                    </Badge>
+                                    <div className="flex gap-2">
+                                        <Button size="sm" onClick={handleConfirmSecondChance} className="bg-green-600 hover:bg-green-700">
+                                            <Check className="mr-1 h-3 w-3" />
+                                            Confirmar
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => setAbsentToGiveChance(null)}>
+                                            <X className="mr-1 h-3 w-3" />
+                                            Cancelar
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-2 pt-2">
+                            <Button onClick={handleSkipSecondChance} variant="outline" className="border-orange-500 text-orange-600">
+                                <Dices className="mr-2 h-4 w-4" />
+                                Sortear Vagas Aleatoriamente para Todos Ausentes
+                            </Button>
+                            <Button onClick={handleFinalizeWithoutAbsent} variant="outline" className="border-red-500 text-red-600">
+                                <X className="mr-2 h-4 w-4" />
+                                Finalizar Sem Dar Vagas aos Ausentes
                             </Button>
                         </div>
                     </div>
