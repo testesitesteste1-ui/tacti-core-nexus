@@ -1512,6 +1512,14 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             Vez Atual: {currentParticipant.drawOrder}º Sorteado
                             {currentParticipant.hasSpecialNeeds && <Badge variant="pcd">PcD</Badge>}
                             {currentParticipant.isElderly && <Badge variant="elderly">Idoso</Badge>}
+                            {currentParticipant.hasSmallCar && <Badge variant="small">Veíc. Peq.</Badge>}
+                            {currentParticipant.hasLargeCar && <Badge variant="large">Veíc. Gde.</Badge>}
+                            {currentParticipant.hasMotorcycle && <Badge variant="motorcycle">Moto</Badge>}
+                            {currentParticipant.prefersCommonSpot && <Badge variant="common">P. Comum</Badge>}
+                            {currentParticipant.prefersCovered && <Badge variant="covered">P. Coberta</Badge>}
+                            {currentParticipant.prefersUncovered && <Badge variant="uncovered">P. Descob.</Badge>}
+                            {currentParticipant.prefersLinkedSpot && <Badge variant="linked">P. Presa</Badge>}
+                            {currentParticipant.prefersUnlinkedSpot && <Badge variant="unlinked">P. Livre</Badge>}
                         </CardTitle>
                         <CardDescription>
                             {currentParticipant.block && `Bloco ${currentParticipant.block} - `}
@@ -1632,11 +1640,19 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                     {participant.drawOrder}
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium flex items-center gap-2">
+                                                    <div className="font-medium flex items-center gap-2 flex-wrap">
                                                         {participant.block && `Bloco ${participant.block} - `}
                                                         Unidade {participant.unit}
                                                         {participant.hasSpecialNeeds && <Badge variant="pcd" className="text-xs">PcD</Badge>}
                                                         {participant.isElderly && <Badge variant="elderly" className="text-xs">Idoso</Badge>}
+                                                        {participant.hasSmallCar && <Badge variant="small" className="text-xs">Veíc. Peq.</Badge>}
+                                                        {participant.hasLargeCar && <Badge variant="large" className="text-xs">Veíc. Gde.</Badge>}
+                                                        {participant.hasMotorcycle && <Badge variant="motorcycle" className="text-xs">Moto</Badge>}
+                                                        {participant.prefersCommonSpot && <Badge variant="common" className="text-xs">P. Comum</Badge>}
+                                                        {participant.prefersCovered && <Badge variant="covered" className="text-xs">P. Coberta</Badge>}
+                                                        {participant.prefersUncovered && <Badge variant="uncovered" className="text-xs">P. Descob.</Badge>}
+                                                        {participant.prefersLinkedSpot && <Badge variant="linked" className="text-xs">P. Presa</Badge>}
+                                                        {participant.prefersUnlinkedSpot && <Badge variant="unlinked" className="text-xs">P. Livre</Badge>}
                                                     </div>
                                                     <div className="text-sm text-muted-foreground">
                                                         {participant.name}
@@ -1766,10 +1782,17 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                 <div className="text-sm text-muted-foreground">
                                                     {participant.name}
                                                 </div>
-                                                <div className="flex gap-1 mt-1">
+                                                <div className="flex gap-1 mt-1 flex-wrap">
                                                     {participant.hasSpecialNeeds && <Badge variant="pcd" className="text-xs">PcD</Badge>}
                                                     {participant.isElderly && <Badge variant="elderly" className="text-xs">Idoso</Badge>}
-                                                    {participant.isUpToDate === false && <Badge variant="destructive" className="text-xs">Inad.</Badge>}
+                                                    {participant.hasSmallCar && <Badge variant="small" className="text-xs">Veíc. Peq.</Badge>}
+                                                    {participant.hasLargeCar && <Badge variant="large" className="text-xs">Veíc. Gde.</Badge>}
+                                                    {participant.hasMotorcycle && <Badge variant="motorcycle" className="text-xs">Moto</Badge>}
+                                                    {participant.prefersCommonSpot && <Badge variant="common" className="text-xs">P. Comum</Badge>}
+                                                    {participant.prefersCovered && <Badge variant="covered" className="text-xs">P. Coberta</Badge>}
+                                                    {participant.prefersUncovered && <Badge variant="uncovered" className="text-xs">P. Descob.</Badge>}
+                                                    {participant.prefersLinkedSpot && <Badge variant="linked" className="text-xs">P. Presa</Badge>}
+                                                    {participant.prefersUnlinkedSpot && <Badge variant="unlinked" className="text-xs">P. Livre</Badge>}
                                                 </div>
                                             </div>
                                         ))}
@@ -1799,9 +1822,16 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                     {participant.block && `Bl. ${participant.block} - `}
                                                     Un. {participant.unit}
                                                 </span>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1 flex-wrap">
                                                     {participant.hasSpecialNeeds && <Badge variant="pcd" className="text-xs">PcD</Badge>}
                                                     {participant.isElderly && <Badge variant="elderly" className="text-xs">Idoso</Badge>}
+                                                    {participant.hasSmallCar && <Badge variant="small" className="text-xs">Veíc. Peq.</Badge>}
+                                                    {participant.hasLargeCar && <Badge variant="large" className="text-xs">Veíc. Gde.</Badge>}
+                                                    {participant.hasMotorcycle && <Badge variant="motorcycle" className="text-xs">Moto</Badge>}
+                                                    {participant.prefersCovered && <Badge variant="covered" className="text-xs">P. Cob.</Badge>}
+                                                    {participant.prefersUncovered && <Badge variant="uncovered" className="text-xs">P. Desc.</Badge>}
+                                                    {participant.prefersLinkedSpot && <Badge variant="linked" className="text-xs">P. Presa</Badge>}
+                                                    {participant.prefersUnlinkedSpot && <Badge variant="unlinked" className="text-xs">P. Livre</Badge>}
                                                     <Badge variant="outline">
                                                         {participant.drawOrder}º
                                                     </Badge>

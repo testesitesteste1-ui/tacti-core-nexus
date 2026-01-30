@@ -915,7 +915,19 @@ export const ParticipantManagement = () => {
                       )}
                     </div>
                   
-                  {/* Campo Inadimplente oculto - mantido internamente */}
+                  {/* Inadimplente - interno para priorização, NÃO mostrar visualmente nos resultados */}
+                  <div className="flex items-center space-x-2 pt-2 border-t mt-2">
+                    <Checkbox
+                      id="isUpToDate"
+                      checked={formData.isUpToDate === false}
+                      onCheckedChange={(checked) => 
+                        setFormData({...formData, isUpToDate: !checked})
+                      }
+                    />
+                    <Label htmlFor="isUpToDate" className="text-muted-foreground">
+                      Inadimplente (interno - não aparece nos relatórios)
+                    </Label>
+                  </div>
                 </div>
               </div>
 
