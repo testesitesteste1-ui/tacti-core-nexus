@@ -16,7 +16,7 @@ import { Participant, ParkingSpot, LotteryResult, LotterySession, Priority } fro
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { generateLotteryPDF } from '@/utils/pdfGenerator';
-import { savePublicResults } from '@/utils/publicResults';
+import { savePublicResults, clearChoiceLotteryLive } from '@/utils/publicResults';
 
 // ============================================================================
 // 🎲 FUNÇÃO DE EMBARALHAMENTO (Fisher-Yates Shuffle)
@@ -1435,6 +1435,11 @@ export const LotterySystem = () => {
     setResults([]);
     setShowResults(false);
     setCurrentSessionId(null);
+
+    // 🧹 LIMPAR DADOS AO VIVO DE SORTEIO DE ESCOLHA (se existir)
+    if (selectedBuilding?.id) {
+      await clearChoiceLotteryLive(selectedBuilding.id);
+    }
 
     const selectedParticipantsData = eligibleParticipants.filter(p =>
       selectedParticipants.includes(p.id)
