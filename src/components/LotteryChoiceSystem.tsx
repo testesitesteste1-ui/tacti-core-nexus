@@ -755,9 +755,12 @@ export default function LotteryChoiceSystem(): JSX.Element {
     // ============================================================================
     // 🔄 FUNÇÃO: REINICIAR SORTEIO
     // ============================================================================
-    const handleReset = (): void => {
+    const handleReset = async (): Promise<void> => {
         if (selectedBuilding?.id) {
             localStorage.removeItem(STORAGE_KEY);
+            
+            // 🧹 LIMPAR DADOS AO VIVO
+            await clearChoiceLotteryLive(selectedBuilding.id);
         }
 
         setDrawnOrder([]);
@@ -768,10 +771,11 @@ export default function LotteryChoiceSystem(): JSX.Element {
         setFilterType('all');
         setPendingSpot(null);
         setSessionFinalized(false);
+        setPreAllocations(new Map());
 
         toast({
             title: "Sorteio reiniciado",
-            description: "Sistema pronto para um novo sorteio.",
+            description: "Sistema pronto para um novo sorteio. Dados ao vivo foram limpos.",
         });
     };
 
