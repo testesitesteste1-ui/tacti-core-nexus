@@ -355,7 +355,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
         const needsMoreSpots = spotsAllocatedNow < spotsNeededTotal;
 
         if (needsMoreSpots && updatedAvailable.length > 0) {
-            // Ainda precisa escolher mais vagas
+            // Ainda precisa escolher mais vagas - MANTER DIALOG ABERTO
             const updatedOrder = [...drawnOrder];
             updatedOrder[currentTurnIndex] = updatedParticipant;
             setDrawnOrder(updatedOrder);
@@ -364,6 +364,10 @@ export default function LotteryChoiceSystem(): JSX.Element {
                 title: `Vaga ${pendingSpot.number} alocada!`,
                 description: `Escolha mais ${spotsNeededTotal - spotsAllocatedNow} vaga(s).`,
             });
+
+            // ✅ CORRIGIDO: Limpar vaga pendente mas MANTER dialog aberto
+            setPendingSpot(null);
+            // NÃO fechar o dialog - manter isSelectingSpot = true
         } else {
             // Completou - marcar como completo e avançar
             updatedParticipant.status = 'completed';
@@ -398,10 +402,11 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     description: `${currentParticipant.block ? `Bloco ${currentParticipant.block} - ` : ''}Unidade ${currentParticipant.unit} escolheu ${spotsAllocatedNow} vaga(s).`,
                 });
             }
-        }
 
-        setPendingSpot(null);
-        setIsSelectingSpot(false);
+            // ✅ Apenas fechar dialog quando completou TODAS as vagas
+            setPendingSpot(null);
+            setIsSelectingSpot(false);
+        }
     };
 
     // ============================================================================
