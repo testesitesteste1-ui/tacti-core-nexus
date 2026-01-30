@@ -1087,12 +1087,14 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     </thead>
                     <tbody>
                         ${drawnOrder.map((participant, index) => {
+                            // ✅ Determinar prioridade visual - Inadimplente é OCULTO (mostrado como Normal)
                             let priorityBadge = '';
                             if (participant.hasSpecialNeeds) {
                                 priorityBadge = '<span class="priority pcd">PcD</span>';
                             } else if (participant.isElderly) {
                                 priorityBadge = '<span class="priority elderly">Idoso</span>';
                             } else {
+                                // Normal ou Inadimplente (isUpToDate === false) - ambos aparecem como "Normal"
                                 priorityBadge = '<span class="priority normal">Normal</span>';
                             }
                             
@@ -1101,7 +1103,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                     <td class="position">${participant.drawOrder}º</td>
                                     <td>${participant.block || '-'}</td>
                                     <td>${participant.unit}</td>
-                                    <td>${participant.name || '-'}</td>
+                                    <td>${participant.name || 'Sem Nome'}</td>
                                     <td>${priorityBadge}</td>
                                 </tr>
                             `;
