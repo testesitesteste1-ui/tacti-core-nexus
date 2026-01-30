@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { fetchPublicResults, PublicLotteryData, formatLotteryDate } from '@/utils/publicResults';
+import { fetchPublicResults, PublicLotteryData, formatLotteryDate, ChoiceLotteryLiveData } from '@/utils/publicResults';
 import { generateLotteryPDF } from '@/utils/pdfGenerator';
 import { ParkingSpot, SpotType } from '@/types/lottery';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +22,9 @@ import {
   TrendingUp,
   Grid3x3,
   User,
-  ParkingCircle
+  ParkingCircle,
+  Radio,
+  Loader2
 } from 'lucide-react';
 import exeventosLogo from '@/assets/exeventos-logo.png';
 import mageventosLogo from '@/assets/mageventos-logo.jpg';
@@ -37,6 +39,7 @@ type SpotTypeFilter = 'all' | 'pcd' | 'idoso' | 'others';
 
 export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
   const [data, setData] = useState<PublicLotteryData | null>(null);
+  const [liveData, setLiveData] = useState<ChoiceLotteryLiveData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,44 +53,67 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
     setLoading(true);
     setError(null);
 
-    let unsubscribe: (() => void) | null = null;
+    let unsubscribeResults: (() => void) | null = null;
+    let unsubscribeLive: (() => void) | null = null;
 
-    // 🔥 Configurar listener em tempo real
-    const setupListener = async () => {
+    // 🔥 Configurar listeners em tempo real
+    const setupListeners = async () => {
       const { database } = await import('@/config/firebase');
       const { ref, onValue } = await import('firebase/database');
 
+      // Listener para resultados finais
       const publicRef = ref(database, `public/results/${buildingId}`);
-
-      // 🔥 Listener em tempo real - atualiza AUTOMATICAMENTE quando dados mudam
-      unsubscribe = onValue(publicRef, (snapshot) => {
+      unsubscribeResults = onValue(publicRef, (snapshot) => {
         if (snapshot.exists()) {
           const publicData = snapshot.val() as PublicLotteryData;
-          console.log('🔥 DADOS ATUALIZADOS EM TEMPO REAL:', {
+          console.log('🔥 RESULTADOS ATUALIZADOS:', {
             publishedAt: publicData.publishedAt,
             resultsCount: publicData.results.length
           });
           setData(publicData);
           setError(null);
         } else {
-          setError('Nenhum resultado disponível para este condomínio.');
           setData(null);
         }
         setLoading(false);
       }, (error) => {
-        console.error('❌ Erro no listener:', error);
-        setError('Erro ao carregar resultados. Tente novamente.');
+        console.error('❌ Erro no listener de resultados:', error);
         setLoading(false);
+      });
+
+      // Listener para sorteio ao vivo
+      const liveRef = ref(database, `public/live/${buildingId}`);
+      unsubscribeLive = onValue(liveRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const live = snapshot.val() as ChoiceLotteryLiveData;
+          console.log('📡 SORTEIO AO VIVO:', {
+            status: live.status,
+            currentTurn: live.currentTurnIndex + 1,
+            completed: live.completedCount,
+            total: live.totalParticipants
+          });
+          setLiveData(live);
+          setError(null);
+        } else {
+          setLiveData(null);
+        }
+        setLoading(false);
+      }, (error) => {
+        console.error('❌ Erro no listener ao vivo:', error);
       });
     };
 
-    setupListener();
+    setupListeners();
 
-    // Cleanup - remove o listener quando o componente desmontar
+    // Cleanup - remove os listeners quando o componente desmontar
     return () => {
-      if (unsubscribe) {
-        console.log('🧹 Removendo listener');
-        unsubscribe();
+      if (unsubscribeResults) {
+        console.log('🧹 Removendo listener de resultados');
+        unsubscribeResults();
+      }
+      if (unsubscribeLive) {
+        console.log('🧹 Removendo listener ao vivo');
+        unsubscribeLive();
       }
     };
   }, [buildingId]);
@@ -380,7 +406,178 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
     );
   }
 
-  if (error || !data) {
+  // 📡 MOSTRAR SORTEIO AO VIVO (prioridade sobre resultados finais)
+  if (liveData && liveData.status === 'in_progress') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200">
+        {/* Header Ao Vivo */}
+        <div className="bg-gradient-to-r from-red-600 via-red-500 to-orange-500 text-white relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute inset-0" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }} />
+          </div>
+
+          <div className="max-w-7xl mx-auto px-6 py-12 relative">
+            <div className="flex flex-col items-center text-center">
+              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full mb-4 animate-pulse">
+                <Radio className="w-4 h-4" />
+                <span className="text-sm font-bold uppercase tracking-wider">Ao Vivo</span>
+              </div>
+
+              <h1 className="text-4xl md:text-5xl font-bold mb-3 drop-shadow-lg">
+                Sorteio em Andamento
+              </h1>
+
+              <div className="flex items-center gap-2 text-white/90">
+                <Building2 className="w-5 h-5" />
+                <span className="text-xl font-semibold">{liveData.buildingName}</span>
+              </div>
+
+              <p className="mt-4 text-white/80 text-sm">
+                {liveData.sessionName}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Progresso */}
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <Card className="mb-6 border-red-200 bg-gradient-to-r from-red-50 to-orange-50">
+            <CardContent className="pt-6">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-red-500 p-3 rounded-full animate-pulse">
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-red-900">
+                      Vez: {liveData.currentTurnIndex + 1}º participante
+                    </p>
+                    <p className="text-sm text-red-700">
+                      {liveData.completedCount} de {liveData.totalParticipants} já escolheram
+                    </p>
+                  </div>
+                </div>
+                <div className="w-full md:w-64">
+                  <div className="w-full bg-red-200 rounded-full h-3">
+                    <div 
+                      className="bg-red-500 h-3 rounded-full transition-all duration-500" 
+                      style={{ width: `${(liveData.completedCount / liveData.totalParticipants) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-red-600 mt-1 text-right">
+                    {Math.round((liveData.completedCount / liveData.totalParticipants) * 100)}% concluído
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lista de Participantes ao Vivo */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Ordem do Sorteio
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {liveData.drawnOrder.map((participant, index) => (
+                  <div 
+                    key={participant.id}
+                    className={`p-4 rounded-lg border transition-all ${
+                      participant.status === 'choosing' 
+                        ? 'bg-red-50 border-red-300 ring-2 ring-red-400 animate-pulse' 
+                        : participant.status === 'completed'
+                        ? 'bg-green-50 border-green-200'
+                        : participant.status === 'skipped'
+                        ? 'bg-orange-50 border-orange-200'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className={`font-bold text-lg w-8 h-8 rounded-full flex items-center justify-center ${
+                          participant.status === 'choosing'
+                            ? 'bg-red-500 text-white'
+                            : participant.status === 'completed'
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-300 text-gray-700'
+                        }`}>
+                          {participant.drawOrder}
+                        </span>
+                        <div>
+                          <p className="font-medium">
+                            {participant.block && `Bloco ${participant.block} - `}Unidade {participant.unit}
+                          </p>
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {participant.hasSpecialNeeds && <Badge variant="pcd" className="text-xs">PcD</Badge>}
+                            {participant.isElderly && <Badge variant="elderly" className="text-xs">Idoso</Badge>}
+                            {participant.hasSmallCar && <Badge variant="small" className="text-xs">Veíc. Peq.</Badge>}
+                            {participant.hasLargeCar && <Badge variant="large" className="text-xs">Veíc. Gde.</Badge>}
+                            {participant.hasMotorcycle && <Badge variant="motorcycle" className="text-xs">Moto</Badge>}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {participant.status === 'choosing' && (
+                          <Badge className="bg-red-500 text-white animate-pulse">
+                            Escolhendo...
+                          </Badge>
+                        )}
+                        {participant.status === 'completed' && participant.allocatedSpots.length > 0 && (
+                          <div className="flex gap-1 flex-wrap">
+                            {participant.allocatedSpots.map((spot, i) => (
+                              <Badge key={i} variant="secondary" className="bg-green-100 text-green-800">
+                                🅿️ {spot.number}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {participant.status === 'skipped' && (
+                          <Badge variant="outline" className="border-orange-400 text-orange-600">
+                            Ausente
+                          </Badge>
+                        )}
+                        {participant.status === 'waiting' && (
+                          <Badge variant="outline" className="text-gray-500">
+                            Aguardando
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || (!data && !liveData)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center">
+            <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Aguardando próximo sorteio
+            </h3>
+            <p className="text-gray-600">
+              Os resultados do sorteio para este condomínio ainda não foram publicados.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!data) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6">
         <Card className="max-w-md w-full">

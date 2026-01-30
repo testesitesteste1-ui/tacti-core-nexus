@@ -527,3 +527,156 @@ export const getPriorityLabel = (priority: string): string => {
             return 'Comum';
     }
 };
+
+/**
+ * Interface para dados parciais do sorteio de escolha (em andamento)
+ */
+export interface ChoiceLotteryLiveData {
+    building: string;
+    buildingName: string;
+    sessionName: string;
+    company?: string;
+    status: 'drawing' | 'in_progress' | 'completed';
+    startedAt: string;
+    updatedAt: string;
+    currentTurnIndex: number;
+    totalParticipants: number;
+    completedCount: number;
+    drawnOrder: Array<{
+        id: string;
+        drawOrder: number;
+        block: string;
+        unit: string;
+        name: string;
+        status: 'waiting' | 'choosing' | 'completed' | 'skipped';
+        hasSpecialNeeds: boolean;
+        isElderly: boolean;
+        hasSmallCar?: boolean;
+        hasLargeCar?: boolean;
+        hasMotorcycle?: boolean;
+        prefersCommonSpot?: boolean;
+        prefersCovered?: boolean;
+        prefersUncovered?: boolean;
+        prefersLinkedSpot?: boolean;
+        prefersUnlinkedSpot?: boolean;
+        prefersSmallSpot?: boolean;
+        numberOfSpots: number;
+        allocatedSpots: Array<{
+            id: string;
+            number: string;
+            floor: string;
+            type: string[];
+            size: string;
+            isCovered: boolean;
+            isUncovered: boolean;
+        }>;
+    }>;
+}
+
+/**
+ * Salva os dados do sorteio de escolha em tempo real no Firebase
+ * Chamado quando o sorteio inicia e a cada vaga selecionada
+ */
+export const saveChoiceLotteryLive = async (
+    buildingId: string,
+    buildingName: string,
+    sessionName: string,
+    drawnOrder: any[],
+    currentTurnIndex: number,
+    status: 'drawing' | 'in_progress' | 'completed',
+    company?: string
+): Promise<OperationResult> => {
+    try {
+        const { auth } = await import('@/config/firebase');
+        const currentUser = auth.currentUser;
+
+        if (!currentUser) {
+            return {
+                success: false,
+                error: 'Usuário não autenticado'
+            };
+        }
+
+        const completedCount = drawnOrder.filter(p => 
+            p.status === 'completed' || (p.allocatedSpots && p.allocatedSpots.length > 0)
+        ).length;
+
+        const liveData: ChoiceLotteryLiveData = {
+            building: buildingId,
+            buildingName: buildingName,
+            sessionName: sessionName || 'Sorteio de Escolha',
+            company: company,
+            status: status,
+            startedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            currentTurnIndex: currentTurnIndex,
+            totalParticipants: drawnOrder.length,
+            completedCount: completedCount,
+            drawnOrder: drawnOrder.map((p: any) => ({
+                id: p.id,
+                drawOrder: p.drawOrder,
+                block: p.block || '',
+                unit: p.unit || '',
+                name: p.name || '',
+                status: p.status,
+                hasSpecialNeeds: p.hasSpecialNeeds || false,
+                isElderly: p.isElderly || false,
+                hasSmallCar: p.hasSmallCar || false,
+                hasLargeCar: p.hasLargeCar || false,
+                hasMotorcycle: p.hasMotorcycle || false,
+                prefersCommonSpot: p.prefersCommonSpot || false,
+                prefersCovered: p.prefersCovered || false,
+                prefersUncovered: p.prefersUncovered || false,
+                prefersLinkedSpot: p.prefersLinkedSpot || false,
+                prefersUnlinkedSpot: p.prefersUnlinkedSpot || false,
+                prefersSmallSpot: p.prefersSmallSpot || false,
+                numberOfSpots: p.numberOfSpots || 1,
+                allocatedSpots: (p.allocatedSpots || []).map((spot: any) => ({
+                    id: spot.id,
+                    number: spot.number || '',
+                    floor: spot.floor || 'Piso Único',
+                    type: Array.isArray(spot.type) ? spot.type : (spot.type ? [spot.type] : ['Vaga Comum']),
+                    size: spot.size || 'M',
+                    isCovered: Boolean(spot.isCovered),
+                    isUncovered: Boolean(spot.isUncovered),
+                })),
+            })),
+        };
+
+        console.log('📡 Atualizando sorteio de escolha em tempo real:', {
+            status,
+            currentTurn: currentTurnIndex + 1,
+            completed: completedCount,
+            total: drawnOrder.length
+        });
+
+        const liveRef = ref(database, `public/live/${buildingId}`);
+        await set(liveRef, liveData);
+
+        return { success: true };
+    } catch (error: any) {
+        console.error('❌ Erro ao salvar sorteio ao vivo:', error);
+        return {
+            success: false,
+            error: error.message || 'Erro ao salvar dados ao vivo'
+        };
+    }
+};
+
+/**
+ * Remove os dados do sorteio ao vivo (quando finaliza)
+ */
+export const clearChoiceLotteryLive = async (buildingId: string): Promise<OperationResult> => {
+    try {
+        const liveRef = ref(database, `public/live/${buildingId}`);
+        await set(liveRef, null);
+        console.log('🧹 Dados ao vivo removidos');
+        return { success: true };
+    } catch (error: any) {
+        console.error('❌ Erro ao limpar dados ao vivo:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+};
