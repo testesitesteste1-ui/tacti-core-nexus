@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Participant, ParkingSpot, LotterySession, LotteryResult, SpotType } from '@/types/lottery';
-import { savePublicResults } from '@/utils/publicResults';
+import { savePublicResults, saveChoiceLotteryLive, clearChoiceLotteryLive } from '@/utils/publicResults';
 import { generateLotteryPDF } from '@/utils/pdfGenerator';
 import * as XLSX from 'xlsx';
 
@@ -214,6 +214,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
             );
 
             if (saveResult.success) {
+                // 🧹 Limpar dados ao vivo após salvar resultados finais
+                await clearChoiceLotteryLive(selectedBuilding.id);
+                
                 toast({
                     title: "Resultados publicados! 📱",
                     description: "Os resultados estão disponíveis no QR Code.",
@@ -317,6 +320,19 @@ export default function LotteryChoiceSystem(): JSX.Element {
 
         const preAllocatedCount = Array.from(preAllocations.values()).flat().length;
 
+        // 📡 PUBLICAR ORDEM INICIAL EM TEMPO REAL
+        if (selectedBuilding?.id) {
+            saveChoiceLotteryLive(
+                selectedBuilding.id,
+                selectedBuilding.name || 'Condomínio',
+                'Sorteio de Escolha',
+                drawn,
+                firstChoosingIndex >= 0 ? firstChoosingIndex : 0,
+                'in_progress',
+                selectedBuilding.company
+            );
+        }
+
         toast({
             title: "Ordem sorteada!",
             description: `${drawn.length} participantes na fila. ${preAllocatedCount > 0 ? `${preAllocatedCount} pré-alocação(ões) aplicada(s).` : ''}`,
@@ -360,6 +376,19 @@ export default function LotteryChoiceSystem(): JSX.Element {
             updatedOrder[currentTurnIndex] = updatedParticipant;
             setDrawnOrder(updatedOrder);
 
+            // 📡 ATUALIZAR EM TEMPO REAL
+            if (selectedBuilding?.id) {
+                saveChoiceLotteryLive(
+                    selectedBuilding.id,
+                    selectedBuilding.name || 'Condomínio',
+                    'Sorteio de Escolha',
+                    updatedOrder,
+                    currentTurnIndex,
+                    'in_progress',
+                    selectedBuilding.company
+                );
+            }
+
             toast({
                 title: `Vaga ${pendingSpot.number} alocada!`,
                 description: `Escolha mais ${spotsNeededTotal - spotsAllocatedNow} vaga(s).`,
@@ -388,6 +417,23 @@ export default function LotteryChoiceSystem(): JSX.Element {
             }
 
             setDrawnOrder(updatedOrder);
+
+            // 📡 ATUALIZAR EM TEMPO REAL
+            if (selectedBuilding?.id) {
+                const newStatus = updatedOrder.every((p: DrawnParticipant) => 
+                    p.status === 'completed' || p.status === 'skipped'
+                ) ? 'completed' : 'in_progress';
+
+                saveChoiceLotteryLive(
+                    selectedBuilding.id,
+                    selectedBuilding.name || 'Condomínio',
+                    'Sorteio de Escolha',
+                    updatedOrder,
+                    nextIndex < updatedOrder.length ? nextIndex : currentTurnIndex,
+                    newStatus as 'in_progress' | 'completed',
+                    selectedBuilding.company
+                );
+            }
 
             // Verificar se todos completaram (incluindo skipped)
             const allDone = updatedOrder.every((p: DrawnParticipant) => 
@@ -434,6 +480,19 @@ export default function LotteryChoiceSystem(): JSX.Element {
             updatedOrder[nextIndex].status = 'choosing';
             setCurrentTurnIndex(nextIndex);
             setDrawnOrder(updatedOrder);
+
+            // 📡 ATUALIZAR EM TEMPO REAL
+            if (selectedBuilding?.id) {
+                saveChoiceLotteryLive(
+                    selectedBuilding.id,
+                    selectedBuilding.name || 'Condomínio',
+                    'Sorteio de Escolha',
+                    updatedOrder,
+                    nextIndex,
+                    'in_progress',
+                    selectedBuilding.company
+                );
+            }
 
             toast({
                 title: "Participante pulado",
