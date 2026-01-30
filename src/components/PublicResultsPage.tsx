@@ -420,6 +420,15 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
 
           <div className="max-w-7xl mx-auto px-6 py-12 relative">
             <div className="flex flex-col items-center text-center">
+              {/* Logo da Empresa */}
+              <div className="bg-white rounded-xl p-3 mb-6 shadow-lg">
+                <img 
+                  src={liveData.company === 'mageventos' ? mageventosLogo : exeventosLogo}
+                  alt={`Logo ${liveData.company === 'mageventos' ? 'Mageventos' : 'ExEventos'}`}
+                  className="h-12 md:h-16 object-contain"
+                />
+              </div>
+
               <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full mb-4 animate-pulse">
                 <Radio className="w-4 h-4" />
                 <span className="text-sm font-bold uppercase tracking-wider">Ao Vivo</span>
