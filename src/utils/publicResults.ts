@@ -23,10 +23,14 @@ export interface PublicLotteryData {
             unit: string;
             name: string;
             hasLargeCar?: boolean;
+            hasSmallCar?: boolean;
+            hasMotorcycle?: boolean;
+            prefersCommonSpot?: boolean;
             prefersCovered?: boolean;
             prefersUncovered?: boolean;
             prefersLinkedSpot?: boolean;
             prefersUnlinkedSpot?: boolean;
+            prefersSmallSpot?: boolean;
             numberOfSpots?: number;
         };
         spotSnapshot: {
@@ -64,10 +68,14 @@ const findParticipantData = (
         unit: participant?.unit || '',
         name: participant?.name || 'N/A',
         hasLargeCar: participant?.hasLargeCar || false,
+        hasSmallCar: participant?.hasSmallCar || false,
+        hasMotorcycle: participant?.hasMotorcycle || false,
+        prefersCommonSpot: participant?.prefersCommonSpot || false,
         prefersCovered: participant?.prefersCovered || false,
         prefersUncovered: participant?.prefersUncovered || false,
         prefersLinkedSpot: participant?.prefersLinkedSpot || false,
         prefersUnlinkedSpot: participant?.prefersUnlinkedSpot || false,
+        prefersSmallSpot: participant?.prefersSmallSpot || false,
         numberOfSpots: participant?.numberOfSpots || 1,
     };
 };
@@ -171,20 +179,28 @@ export const savePublicResults = async (
                     unit: participant.unit || '',
                     name: participant.name || 'N/A',
                     hasLargeCar: participant.hasLargeCar || false,
+                    hasSmallCar: participant.hasSmallCar || false,
+                    hasMotorcycle: participant.hasMotorcycle || false,
+                    prefersCommonSpot: participant.prefersCommonSpot || false,
                     prefersCovered: participant.prefersCovered || false,
                     prefersUncovered: participant.prefersUncovered || false,
                     prefersLinkedSpot: participant.prefersLinkedSpot || false,
                     prefersUnlinkedSpot: participant.prefersUnlinkedSpot || false,
+                    prefersSmallSpot: participant.prefersSmallSpot || false,
                     numberOfSpots: participant.numberOfSpots || 1,
                 } : (result.participantSnapshot ? {
                     block: result.participantSnapshot.block || '',
                     unit: result.participantSnapshot.unit || '',
                     name: result.participantSnapshot.name || 'N/A',
                     hasLargeCar: false,
+                    hasSmallCar: false,
+                    hasMotorcycle: false,
+                    prefersCommonSpot: false,
                     prefersCovered: false,
                     prefersUncovered: false,
                     prefersLinkedSpot: false,
                     prefersUnlinkedSpot: false,
+                    prefersSmallSpot: false,
                     numberOfSpots: 1,
                 } : findParticipantData(result.participantId, participants));
 
