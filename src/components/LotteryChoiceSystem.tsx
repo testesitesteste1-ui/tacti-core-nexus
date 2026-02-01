@@ -100,6 +100,10 @@ export default function LotteryChoiceSystem(): JSX.Element {
     const [pendingPartnerSpot, setPendingPartnerSpot] = useState<ParkingSpot | null>(null);
     const [absentToGiveChance, setAbsentToGiveChance] = useState<DrawnParticipant | null>(null);
 
+    // Estado para criar dupla na hora
+    const [isCreatingPartnership, setIsCreatingPartnership] = useState<boolean>(false);
+    const [selectedPartnerForGroup, setSelectedPartnerForGroup] = useState<string>('');
+
     // ============================================================================
     // 💾 PERSISTÊNCIA DO SORTEIO
     // ============================================================================
@@ -818,6 +822,61 @@ export default function LotteryChoiceSystem(): JSX.Element {
     };
 
     // ============================================================================
+    // 👥 FUNÇÃO: CRIAR DUPLA/GRUPO NA HORA
+    // ============================================================================
+    const handleCreatePartnership = (): void => {
+        if (!currentParticipant || !selectedPartnerForGroup) {
+            toast({
+                title: "Erro",
+                description: "Selecione um participante para formar a dupla.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        const partnerIndex = drawnOrder.findIndex(p => p.id === selectedPartnerForGroup);
+        if (partnerIndex === -1) return;
+
+        // Gerar um groupId único
+        const newGroupId = `group-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+        // Atualizar ambos os participantes com o mesmo groupId
+        const updatedOrder = [...drawnOrder];
+        updatedOrder[currentTurnIndex] = {
+            ...updatedOrder[currentTurnIndex],
+            groupId: newGroupId
+        };
+        updatedOrder[partnerIndex] = {
+            ...updatedOrder[partnerIndex],
+            groupId: newGroupId
+        };
+
+        setDrawnOrder(updatedOrder);
+        setIsCreatingPartnership(false);
+        setSelectedPartnerForGroup('');
+
+        // 📡 ATUALIZAR EM TEMPO REAL
+        if (selectedBuilding?.id) {
+            saveChoiceLotteryLive(
+                selectedBuilding.id,
+                selectedBuilding.name || 'Condomínio',
+                'Sorteio de Escolha',
+                updatedOrder,
+                currentTurnIndex,
+                'in_progress',
+                selectedBuilding.company
+            );
+        }
+
+        const partner = updatedOrder[partnerIndex];
+        toast({
+            title: "Dupla criada! 👥",
+            description: `${currentParticipant.block ? `Bl. ${currentParticipant.block} - ` : ''}Un. ${currentParticipant.unit} agora pode escolher as vagas para ${partner.block ? `Bl. ${partner.block} - ` : ''}Un. ${partner.unit}`,
+        });
+    };
+
+
+    // ============================================================================
     // 🔄 FUNÇÃO: DESFAZER ÚLTIMA ESCOLHA
     // ============================================================================
     const handleUndoLastChoice = (): void => {
@@ -1478,6 +1537,16 @@ export default function LotteryChoiceSystem(): JSX.Element {
         ? (partnerParticipant.numberOfSpots || 1) - partnerParticipant.allocatedSpots.length
         : 0;
 
+    // Participantes disponíveis para formar dupla (aguardando, sem groupId, não é o atual)
+    const availablePartnersForGroup = useMemo(() => {
+        if (!currentParticipant) return [];
+        return drawnOrder.filter(p => 
+            p.id !== currentParticipant.id && 
+            p.status === 'waiting' && 
+            !p.groupId
+        );
+    }, [drawnOrder, currentParticipant]);
+
     // ============================================================================
     // 📊 ESTATÍSTICAS
     // ============================================================================
@@ -1819,6 +1888,18 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                         : `Escolher Vaga ${spotsNeeded > 1 ? `(${spotsNeeded} restantes)` : ''}`
                                     }
                                 </Button>
+
+                                {/* BOTÃO CRIAR DUPLA - só aparece se não tem parceiro ainda */}
+                                {!currentParticipant.groupId && availablePartnersForGroup.length > 0 && (
+                                    <Button
+                                        onClick={() => setIsCreatingPartnership(true)}
+                                        variant="outline"
+                                        className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                                    >
+                                        <Users className="mr-2 h-4 w-4" />
+                                        Criar Dupla
+                                    </Button>
+                                )}
 
                                 <Button
                                     onClick={handleSkipParticipant}
@@ -2685,6 +2766,99 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                 setPendingPartnerSpot(null);
                             }}>
                                 Fechar
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* DIALOG: CRIAR DUPLA NA HORA */}
+            <Dialog open={isCreatingPartnership} onOpenChange={setIsCreatingPartnership}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Users className="h-5 w-5 text-blue-600" />
+                            Criar Dupla
+                        </DialogTitle>
+                        <DialogDescription>
+                            Selecione o participante que formará dupla com{' '}
+                            <strong>{currentParticipant?.block ? `Bl. ${currentParticipant.block} - ` : ''}Un. {currentParticipant?.unit}</strong>.
+                            Após criar a dupla, você poderá escolher as vagas para ambos.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>Selecione o Parceiro</Label>
+                            <select
+                                className="w-full p-3 border rounded-md text-base"
+                                value={selectedPartnerForGroup}
+                                onChange={(e) => setSelectedPartnerForGroup(e.target.value)}
+                            >
+                                <option value="">Escolha um participante...</option>
+                                {availablePartnersForGroup.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.block ? `Bl. ${p.block} - ` : ''}Un. {p.unit} - {p.name || 'Sem nome'} (Posição: {p.drawOrder}º)
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {selectedPartnerForGroup && (() => {
+                            const partner = availablePartnersForGroup.find(p => p.id === selectedPartnerForGroup);
+                            if (!partner) return null;
+                            return (
+                                <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Users className="h-5 w-5 text-blue-600" />
+                                        <span className="font-semibold text-blue-700">Parceiro Selecionado</span>
+                                    </div>
+                                    <div className="text-sm text-blue-600 space-y-1">
+                                        <p><strong>Unidade:</strong> {partner.block ? `Bl. ${partner.block} - ` : ''}Un. {partner.unit}</p>
+                                        <p><strong>Nome:</strong> {partner.name || 'Sem nome'}</p>
+                                        <p><strong>Posição no sorteio:</strong> {partner.drawOrder}º</p>
+                                        <p><strong>Vagas necessárias:</strong> {partner.numberOfSpots || 1}</p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                        {partner.hasSpecialNeeds && <Badge variant="pcd" className="text-xs">PcD</Badge>}
+                                        {partner.isElderly && <Badge variant="elderly" className="text-xs">Idoso</Badge>}
+                                        {partner.hasSmallCar && <Badge variant="small" className="text-xs">Veíc. Peq.</Badge>}
+                                        {partner.hasLargeCar && <Badge variant="large" className="text-xs">Veíc. Gde.</Badge>}
+                                        {partner.hasMotorcycle && <Badge variant="motorcycle" className="text-xs">Moto</Badge>}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {availablePartnersForGroup.length === 0 && (
+                            <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                                <div className="flex items-center gap-2 text-yellow-700">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <span className="text-sm font-medium">
+                                        Não há participantes disponíveis para formar dupla.
+                                        Apenas participantes que ainda estão aguardando (não sorteados) podem formar dupla.
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex gap-2 justify-end pt-2">
+                            <Button
+                                onClick={handleCreatePartnership}
+                                disabled={!selectedPartnerForGroup}
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                <Users className="mr-2 h-4 w-4" />
+                                Confirmar Dupla
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    setIsCreatingPartnership(false);
+                                    setSelectedPartnerForGroup('');
+                                }}
+                                variant="outline"
+                            >
+                                Cancelar
                             </Button>
                         </div>
                     </div>
