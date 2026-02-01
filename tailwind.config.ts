@@ -91,6 +91,10 @@ export default {
           DEFAULT: "hsl(var(--unlinked))",
           foreground: "hsl(var(--unlinked-foreground))",
         },
+        small: {
+          DEFAULT: "hsl(var(--small))",
+          foreground: "hsl(var(--small-foreground))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

@@ -882,29 +882,49 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                         {getPriorityBadge(result.priority)}
                         
                         {/* Badges de preferências e características */}
+                        {result.participantSnapshot.hasSmallCar && (
+                          <Badge variant="small" className="text-xs">
+                            Veículo Pequeno
+                          </Badge>
+                        )}
                         {result.participantSnapshot.hasLargeCar && (
                           <Badge variant="large" className="text-xs">
                             Veículo Grande
                           </Badge>
                         )}
+                        {result.participantSnapshot.hasMotorcycle && (
+                          <Badge variant="motorcycle" className="text-xs">
+                            Motocicleta
+                          </Badge>
+                        )}
+                        {result.participantSnapshot.prefersCommonSpot && (
+                          <Badge variant="common" className="text-xs">
+                            Pref. Vaga Comum
+                          </Badge>
+                        )}
                         {result.participantSnapshot.prefersCovered && (
                           <Badge variant="covered" className="text-xs">
-                            P. Vaga Coberta
+                            Pref. Coberta
                           </Badge>
                         )}
                         {result.participantSnapshot.prefersUncovered && (
                           <Badge variant="uncovered" className="text-xs">
-                            P. Vaga Descoberta
+                            Pref. Descoberta
                           </Badge>
                         )}
                         {result.participantSnapshot.prefersLinkedSpot && (
                           <Badge variant="linked" className="text-xs">
-                            P. Vaga Presa
+                            Pref. Presa
                           </Badge>
                         )}
                         {result.participantSnapshot.prefersUnlinkedSpot && (
                           <Badge variant="unlinked" className="text-xs">
-                            P. Vaga Livre
+                            Pref. Livre
+                          </Badge>
+                        )}
+                        {result.participantSnapshot.prefersSmallSpot && (
+                          <Badge variant="small" className="text-xs">
+                            Pref. Pequena
                           </Badge>
                         )}
                         {result.participantSnapshot.numberOfSpots && result.participantSnapshot.numberOfSpots > 1 && (
@@ -947,14 +967,18 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                               {result.spotSnapshot.floor}
                             </div>
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {result.spotSnapshot.type.filter(t => t !== 'Vaga Comum').map((type, i) => (
+                              {result.spotSnapshot.type.map((type, i) => (
                                 <Badge 
                                   key={i} 
                                   variant={
                                     type === 'Vaga Idoso' ? 'elderly' :
                                     type === 'Vaga PcD' ? 'pcd' :
                                     type === 'Vaga Grande' ? 'large' :
+                                    type === 'Vaga Pequena' ? 'small' :
+                                    type === 'Vaga Motocicleta' ? 'motorcycle' :
                                     type === 'Vaga Presa' ? 'linked' :
+                                    type === 'Vaga Livre' ? 'unlinked' :
+                                    type === 'Vaga Comum' ? 'common' :
                                     'secondary'
                                   }
                                   className="text-[10px] px-1.5 py-0"
