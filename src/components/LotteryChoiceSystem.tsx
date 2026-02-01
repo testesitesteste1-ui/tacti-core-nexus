@@ -94,6 +94,10 @@ export default function LotteryChoiceSystem(): JSX.Element {
 
     // Estado para segunda chance dos ausentes
     const [showSecondChanceDialog, setShowSecondChanceDialog] = useState<boolean>(false);
+
+    // Estado para escolha de vaga do parceiro (dupla)
+    const [isSelectingPartnerSpot, setIsSelectingPartnerSpot] = useState<boolean>(false);
+    const [pendingPartnerSpot, setPendingPartnerSpot] = useState<ParkingSpot | null>(null);
     const [absentToGiveChance, setAbsentToGiveChance] = useState<DrawnParticipant | null>(null);
 
     // ============================================================================
@@ -717,6 +721,100 @@ export default function LotteryChoiceSystem(): JSX.Element {
     // ============================================================================
     const handleCancelSpotSelection = (): void => {
         setPendingSpot(null);
+    };
+
+    // ============================================================================
+    // 👥 FUNÇÃO: SELECIONAR VAGA PARA PARCEIRO
+    // ============================================================================
+    const handleSelectPartnerSpot = (spot: ParkingSpot): void => {
+        setPendingPartnerSpot(spot);
+    };
+
+    // ============================================================================
+    // 👥 FUNÇÃO: CONFIRMAR VAGA DO PARCEIRO
+    // ============================================================================
+    const handleConfirmPartnerSpot = (): void => {
+        if (!pendingPartnerSpot || !partnerParticipant) return;
+
+        // Encontrar índice do parceiro no drawnOrder
+        const partnerIndex = drawnOrder.findIndex(p => p.id === partnerParticipant.id);
+        if (partnerIndex === -1) return;
+
+        // Adicionar vaga aos alocados do parceiro
+        const updatedPartner: DrawnParticipant = {
+            ...drawnOrder[partnerIndex],
+            allocatedSpots: [...drawnOrder[partnerIndex].allocatedSpots, pendingPartnerSpot]
+        };
+
+        // Remover vaga dos disponíveis
+        const updatedAvailable = availableSpots.filter((s: ParkingSpot) => s.id !== pendingPartnerSpot.id);
+        setAvailableSpots(updatedAvailable);
+
+        // Verificar se parceiro completou TODAS suas escolhas
+        const partnerSpotsNeededTotal = partnerParticipant.numberOfSpots || 1;
+        const partnerSpotsAllocatedNow = updatedPartner.allocatedSpots.length;
+        const partnerNeedsMoreSpots = partnerSpotsAllocatedNow < partnerSpotsNeededTotal;
+
+        const updatedOrder = [...drawnOrder];
+        
+        if (partnerNeedsMoreSpots && updatedAvailable.length > 0) {
+            // Parceiro ainda precisa de mais vagas
+            updatedOrder[partnerIndex] = updatedPartner;
+            setDrawnOrder(updatedOrder);
+
+            // 📡 ATUALIZAR EM TEMPO REAL
+            if (selectedBuilding?.id) {
+                saveChoiceLotteryLive(
+                    selectedBuilding.id,
+                    selectedBuilding.name || 'Condomínio',
+                    'Sorteio de Escolha',
+                    updatedOrder,
+                    currentTurnIndex,
+                    'in_progress',
+                    selectedBuilding.company
+                );
+            }
+
+            toast({
+                title: `Vaga ${pendingPartnerSpot.number} alocada ao parceiro!`,
+                description: `${updatedPartner.block ? `Bloco ${updatedPartner.block} - ` : ''}Unidade ${updatedPartner.unit} precisa de mais ${partnerSpotsNeededTotal - partnerSpotsAllocatedNow} vaga(s).`,
+            });
+
+            setPendingPartnerSpot(null);
+        } else {
+            // Parceiro completou - marcar como completo e remover da fila
+            updatedPartner.status = 'completed';
+            updatedOrder[partnerIndex] = updatedPartner;
+            setDrawnOrder(updatedOrder);
+
+            // 📡 ATUALIZAR EM TEMPO REAL
+            if (selectedBuilding?.id) {
+                saveChoiceLotteryLive(
+                    selectedBuilding.id,
+                    selectedBuilding.name || 'Condomínio',
+                    'Sorteio de Escolha',
+                    updatedOrder,
+                    currentTurnIndex,
+                    'in_progress',
+                    selectedBuilding.company
+                );
+            }
+
+            toast({
+                title: `Parceiro concluído! 👥`,
+                description: `${updatedPartner.block ? `Bloco ${updatedPartner.block} - ` : ''}Unidade ${updatedPartner.unit} recebeu ${partnerSpotsAllocatedNow} vaga(s) e foi removido da fila.`,
+            });
+
+            setPendingPartnerSpot(null);
+            setIsSelectingPartnerSpot(false);
+        }
+    };
+
+    // ============================================================================
+    // 👥 FUNÇÃO: CANCELAR SELEÇÃO DE VAGA DO PARCEIRO
+    // ============================================================================
+    const handleCancelPartnerSpotSelection = (): void => {
+        setPendingPartnerSpot(null);
     };
 
     // ============================================================================
@@ -1360,6 +1458,27 @@ export default function LotteryChoiceSystem(): JSX.Element {
     const hasAbsentParticipants = drawnOrder.some(p => p.status === 'skipped' && p.isAbsent);
 
     // ============================================================================
+    // 👥 PARCEIRO (DUPLA) - Detectar se participante atual tem parceiro
+    // ============================================================================
+    const partnerParticipant = useMemo(() => {
+        if (!currentParticipant || !currentParticipant.groupId) return null;
+        
+        // Encontrar o parceiro com o mesmo groupId que ainda não escolheu
+        const partner = drawnOrder.find(p => 
+            p.id !== currentParticipant.id && 
+            p.groupId === currentParticipant.groupId &&
+            p.status !== 'completed' // Parceiro ainda não completou
+        );
+        
+        return partner || null;
+    }, [currentParticipant, drawnOrder]);
+
+    // Verificar quantas vagas o parceiro ainda precisa
+    const partnerSpotsNeeded = partnerParticipant
+        ? (partnerParticipant.numberOfSpots || 1) - partnerParticipant.allocatedSpots.length
+        : 0;
+
+    // ============================================================================
     // 📊 ESTATÍSTICAS
     // ============================================================================
     const stats = {
@@ -1626,6 +1745,64 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                 Vaga {spot.number} - {spot.floor}
                                             </Badge>
                                         ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 👥 SEÇÃO DO PARCEIRO (DUPLA) */}
+                            {partnerParticipant && partnerSpotsNeeded > 0 && (
+                                <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <Users className="h-5 w-5 text-blue-600" />
+                                            <span className="font-semibold text-blue-700">Parceiro (Dupla)</span>
+                                        </div>
+                                        <Badge variant="outline" className="border-blue-400 text-blue-600">
+                                            {partnerParticipant.block ? `Bl. ${partnerParticipant.block} - ` : ''}
+                                            Un. {partnerParticipant.unit}
+                                        </Badge>
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="text-sm text-blue-600">
+                                            <span className="font-medium">{partnerParticipant.name || 'Sem nome'}</span>
+                                            <span className="mx-2">•</span>
+                                            <span>Posição: {partnerParticipant.drawOrder}º</span>
+                                            <span className="mx-2">•</span>
+                                            <span>Vagas: {partnerParticipant.allocatedSpots.length}/{partnerParticipant.numberOfSpots || 1}</span>
+                                        </div>
+                                    </div>
+
+                                    {partnerParticipant.allocatedSpots.length > 0 && (
+                                        <div className="mb-3">
+                                            <p className="text-xs font-medium text-blue-600 mb-1">Vagas do parceiro:</p>
+                                            <div className="flex flex-wrap gap-1">
+                                                {partnerParticipant.allocatedSpots.map((spot: ParkingSpot) => (
+                                                    <Badge key={spot.id} variant="secondary" className="text-xs bg-blue-100">
+                                                        Vaga {spot.number}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <Button
+                                        onClick={() => setIsSelectingPartnerSpot(true)}
+                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                        disabled={!hasAvailableSpots}
+                                    >
+                                        <Users className="mr-2 h-4 w-4" />
+                                        Escolher Vaga para Parceiro {partnerSpotsNeeded > 1 ? `(${partnerSpotsNeeded} restantes)` : ''}
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* 👥 Indicação de parceiro já atendido */}
+                            {currentParticipant.groupId && !partnerParticipant && (
+                                <div className="p-3 bg-green-50 border border-green-300 rounded-lg">
+                                    <div className="flex items-center gap-2 text-green-700">
+                                        <CheckCircle className="h-4 w-4" />
+                                        <span className="text-sm font-medium">Parceiro já foi atendido ou não está na fila</span>
                                     </div>
                                 </div>
                             )}
@@ -2341,6 +2518,173 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             <Button onClick={handleFinalizeWithoutAbsent} variant="outline" className="border-red-500 text-red-600">
                                 <X className="mr-2 h-4 w-4" />
                                 Finalizar Sem Dar Vagas aos Ausentes
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* DIALOG: ESCOLHER VAGA PARA PARCEIRO (DUPLA) */}
+            <Dialog open={isSelectingPartnerSpot} onOpenChange={setIsSelectingPartnerSpot}>
+                <DialogContent className="max-w-5xl max-h-[90vh]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl">
+                            <Users className="h-5 w-5 text-blue-600" />
+                            Escolher Vaga para Parceiro
+                        </DialogTitle>
+                        <DialogDescription className="text-base">
+                            {partnerParticipant && (
+                                <>
+                                    <span className="font-medium">
+                                        {partnerParticipant.block ? `Bloco ${partnerParticipant.block} - ` : ''}
+                                        Unidade {partnerParticipant.unit}
+                                    </span>
+                                    {partnerParticipant.name && (
+                                        <span> - {partnerParticipant.name}</span>
+                                    )}
+                                    <span className="mx-2">•</span>
+                                    <span>Posição original: {partnerParticipant.drawOrder}º</span>
+                                    <span className="mx-2">•</span>
+                                    <span className="font-medium text-blue-600">
+                                        Precisa de {partnerSpotsNeeded} vaga(s)
+                                    </span>
+                                </>
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        {/* Vaga pendente de confirmação para parceiro */}
+                        {pendingPartnerSpot && (
+                            <div className="p-4 bg-blue-50 border-2 border-blue-400 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <ParkingSquare className="h-8 w-8 text-blue-600" />
+                                        <div>
+                                            <p className="font-bold text-lg">Vaga {pendingPartnerSpot.number}</p>
+                                            <p className="text-sm text-muted-foreground">{pendingPartnerSpot.floor}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button onClick={handleConfirmPartnerSpot} className="bg-blue-600 hover:bg-blue-700 text-white">
+                                            <Check className="mr-2 h-4 w-4" />
+                                            Confirmar para Parceiro
+                                        </Button>
+                                        <Button onClick={handleCancelPartnerSpotSelection} variant="outline">
+                                            <X className="mr-2 h-4 w-4" />
+                                            Cancelar
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Vagas já alocadas ao parceiro */}
+                        {partnerParticipant && partnerParticipant.allocatedSpots.length > 0 && (
+                            <div className="p-3 bg-blue-100 rounded-lg">
+                                <p className="text-sm font-medium text-blue-700 mb-2">Vagas já alocadas ao parceiro:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {partnerParticipant.allocatedSpots.map((spot: ParkingSpot) => (
+                                        <Badge key={spot.id} variant="secondary" className="bg-blue-200">
+                                            Vaga {spot.number} - {spot.floor}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Filtros */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Buscar</Label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Número ou andar..."
+                                        value={searchSpot}
+                                        onChange={(e) => setSearchSpot(e.target.value)}
+                                        className="pl-9"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Filtrar por tipo</Label>
+                                <select
+                                    className="w-full p-2 border rounded-md"
+                                    value={filterType}
+                                    onChange={(e) => setFilterType(e.target.value)}
+                                >
+                                    <option value="all">Todas</option>
+                                    <option value="pcd">Vaga PcD</option>
+                                    <option value="elderly">Vaga Idoso</option>
+                                    <option value="small">Vaga Pequena</option>
+                                    <option value="large">Vaga Grande</option>
+                                    <option value="motorcycle">Vaga Motocicleta</option>
+                                    <option value="common">Vaga Comum</option>
+                                    <option value="covered">Vaga Coberta</option>
+                                    <option value="uncovered">Vaga Descoberta</option>
+                                    <option value="free">Vaga Livre</option>
+                                    <option value="linked">Vaga Presa</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Lista de Vagas */}
+                        <ScrollArea className="h-[400px] border rounded-lg p-4">
+                            {filteredSpots.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground">
+                                    <ParkingSquare className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                                    <p>Nenhuma vaga disponível</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {filteredSpots.map((spot: ParkingSpot) => {
+                                        const badges = getSpotBadges(spot);
+
+                                        return (
+                                            <Card
+                                                key={spot.id}
+                                                className={`cursor-pointer transition-all ${pendingPartnerSpot?.id === spot.id
+                                                    ? 'border-2 border-blue-500 bg-blue-50'
+                                                    : 'hover:border-blue-400 hover:shadow-lg'
+                                                }`}
+                                                onClick={() => handleSelectPartnerSpot(spot)}
+                                            >
+                                                <CardHeader className="pb-3">
+                                                    <CardTitle className="text-2xl flex items-center gap-2">
+                                                        <ParkingSquare className="h-7 w-7" />
+                                                        Vaga {spot.number}
+                                                    </CardTitle>
+                                                    <CardDescription className="text-lg font-medium">{spot.floor}</CardDescription>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {badges.map((badge, idx) => (
+                                                            <Badge key={idx} variant={badge.variant as any} className="text-sm font-semibold px-3 py-1">
+                                                                {badge.icon} {badge.label}
+                                                            </Badge>
+                                                        ))}
+                                                        {badges.length === 0 && (
+                                                            <Badge variant="common" className="text-sm font-semibold px-3 py-1">
+                                                                🅿️ Comum
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </ScrollArea>
+
+                        <div className="flex justify-between items-center text-sm text-muted-foreground pt-2">
+                            <span className="font-medium">{filteredSpots.length} vagas disponíveis</span>
+                            <Button variant="outline" onClick={() => {
+                                setIsSelectingPartnerSpot(false);
+                                setPendingPartnerSpot(null);
+                            }}>
+                                Fechar
                             </Button>
                         </div>
                     </div>
