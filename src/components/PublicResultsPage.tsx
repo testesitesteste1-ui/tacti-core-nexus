@@ -522,11 +522,20 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                             {participant.block && `Bloco ${participant.block} - `}Unidade {participant.unit}
                           </p>
                           <div className="flex gap-1 mt-1 flex-wrap">
+                            {/* Prioridades - Inadimplente é OCULTO visualmente */}
                             {participant.hasSpecialNeeds && <Badge variant="pcd" className="text-xs">PcD</Badge>}
                             {participant.isElderly && <Badge variant="elderly" className="text-xs">Idoso</Badge>}
-                            {participant.hasSmallCar && <Badge variant="small" className="text-xs">Veíc. Peq.</Badge>}
-                            {participant.hasLargeCar && <Badge variant="large" className="text-xs">Veíc. Gde.</Badge>}
-                            {participant.hasMotorcycle && <Badge variant="motorcycle" className="text-xs">Moto</Badge>}
+                            {/* Veículos */}
+                            {participant.hasSmallCar && <Badge variant="small" className="text-xs">Veículo Pequeno</Badge>}
+                            {participant.hasLargeCar && <Badge variant="large" className="text-xs">Veículo Grande</Badge>}
+                            {participant.hasMotorcycle && <Badge variant="motorcycle" className="text-xs">Motocicleta</Badge>}
+                            {/* Preferências */}
+                            {participant.prefersCommonSpot && <Badge variant="common" className="text-xs">Pref. Vaga Comum</Badge>}
+                            {participant.prefersCovered && <Badge variant="covered" className="text-xs">Pref. Coberta</Badge>}
+                            {participant.prefersUncovered && <Badge variant="uncovered" className="text-xs">Pref. Descoberta</Badge>}
+                            {participant.prefersLinkedSpot && <Badge variant="linked" className="text-xs">Pref. Presa</Badge>}
+                            {participant.prefersUnlinkedSpot && <Badge variant="unlinked" className="text-xs">Pref. Livre</Badge>}
+                            {participant.prefersSmallSpot && <Badge variant="small" className="text-xs">Pref. Pequena</Badge>}
                           </div>
                         </div>
                       </div>
