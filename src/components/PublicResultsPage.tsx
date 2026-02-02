@@ -547,11 +547,48 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                           </Badge>
                         )}
                         {participant.status === 'completed' && participant.allocatedSpots.length > 0 && (
-                          <div className="flex gap-1 flex-wrap">
+                          <div className="flex flex-col gap-1">
                             {participant.allocatedSpots.map((spot, i) => (
-                              <Badge key={i} variant="secondary" className="bg-green-100 text-green-800">
-                                🅿️ {spot.number}
-                              </Badge>
+                              <div key={i} className="text-right">
+                                <div className="text-sm font-semibold text-green-700">
+                                  🅿️ {spot.number}
+                                </div>
+                                <div className="flex gap-0.5 flex-wrap justify-end mt-0.5">
+                                  {(() => {
+                                    const typeArray = spot?.type ? (Array.isArray(spot.type) ? spot.type : [spot.type]) : [];
+                                    const filteredTypes = typeArray.filter(type => {
+                                      if ((spot?.isCovered || spot?.isUncovered) && type === 'Vaga Comum') return false;
+                                      if (type === 'Vaga Coberta' || type === 'Vaga Descoberta') return false;
+                                      return true;
+                                    });
+                                    const showCommon = filteredTypes.length === 0 && !spot?.isCovered && !spot?.isUncovered;
+                                    return showCommon ? ['Vaga Comum'] : filteredTypes;
+                                  })().map((type, idx) => (
+                                    <Badge
+                                      key={idx}
+                                      variant={
+                                        type === 'Vaga Idoso' ? 'elderly' :
+                                        type === 'Vaga PcD' ? 'pcd' :
+                                        type === 'Vaga Grande' ? 'large' :
+                                        type === 'Vaga Pequena' ? 'small' :
+                                        type === 'Vaga Presa' ? 'linked' :
+                                        type === 'Vaga Livre' ? 'unlinked' :
+                                        type === 'Vaga Motocicleta' ? 'motorcycle' :
+                                        type === 'Vaga Comum' ? 'common' : 'secondary'
+                                      }
+                                      className="text-[10px] px-1.5 py-0"
+                                    >
+                                      {type}
+                                    </Badge>
+                                  ))}
+                                  {spot?.isCovered && (
+                                    <Badge variant="covered" className="text-[10px] px-1.5 py-0">Coberta</Badge>
+                                  )}
+                                  {spot?.isUncovered && (
+                                    <Badge variant="uncovered" className="text-[10px] px-1.5 py-0">Descoberta</Badge>
+                                  )}
+                                </div>
+                              </div>
                             ))}
                           </div>
                         )}
@@ -953,56 +990,49 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                     {/* Spot Info */}
                     <div className="flex-shrink-0">
                       {result.spotSnapshot ? (
-                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-2 border-emerald-400 rounded-xl p-4 min-w-[200px]">
-                          <div className="flex items-center gap-2 mb-2">
-                            <ParkingCircle className="w-5 h-5 text-emerald-700" />
-                            <span className="text-sm font-semibold text-emerald-800">Vaga Sorteada</span>
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-success flex items-center gap-1">
+                            <span>Vaga {result.spotSnapshot.number} - {result.spotSnapshot.floor}</span>
                           </div>
-                          <div className="text-4xl font-extrabold text-emerald-950 mb-2">
-                            {result.spotSnapshot.number}
-                          </div>
-                          <div className="text-sm text-emerald-700">
-                            <div className="flex items-center gap-1.5 mb-2">
-                              <MapPin className="w-4 h-4" />
-                              <span className="font-medium">{result.spotSnapshot.floor}</span>
-                            </div>
-                            <div className="flex flex-wrap gap-1.5 mt-2">
-                              {result.spotSnapshot.type.map((type, i) => (
-                                <Badge 
-                                  key={i} 
-                                  variant={
-                                    type === 'Vaga Idoso' ? 'elderly' :
-                                    type === 'Vaga PcD' ? 'pcd' :
-                                    type === 'Vaga Grande' ? 'large' :
-                                    type === 'Vaga Pequena' ? 'small' :
-                                    type === 'Vaga Motocicleta' ? 'motorcycle' :
-                                    type === 'Vaga Presa' ? 'linked' :
-                                    type === 'Vaga Livre' ? 'unlinked' :
-                                    type === 'Vaga Comum' ? 'common' :
-                                    'secondary'
-                                  }
-                                  className="text-xs px-2 py-0.5 font-medium"
-                                >
-                                  {type}
-                                </Badge>
-                              ))}
-                              {result.spotSnapshot.isCovered && (
-                                <Badge variant="covered" className="text-xs px-2 py-0.5 font-medium">
-                                  Coberta
-                                </Badge>
-                              )}
-                              {result.spotSnapshot.isUncovered && (
-                                <Badge variant="uncovered" className="text-xs px-2 py-0.5 font-medium">
-                                  Descoberta
-                                </Badge>
-                              )}
-                            </div>
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {(() => {
+                              const typeArray = result.spotSnapshot?.type ? (Array.isArray(result.spotSnapshot.type) ? result.spotSnapshot.type : [result.spotSnapshot.type]) : [];
+                              const filteredTypes = typeArray.filter(type => {
+                                if ((result.spotSnapshot?.isCovered || result.spotSnapshot?.isUncovered) && type === 'Vaga Comum') return false;
+                                if (type === 'Vaga Coberta' || type === 'Vaga Descoberta') return false;
+                                return true;
+                              });
+                              const showCommon = filteredTypes.length === 0 && !result.spotSnapshot?.isCovered && !result.spotSnapshot?.isUncovered;
+                              return showCommon ? ['Vaga Comum'] : filteredTypes;
+                            })().map((type, i) => (
+                              <Badge
+                                key={i}
+                                variant={
+                                  type === 'Vaga Idoso' ? 'elderly' :
+                                  type === 'Vaga PcD' ? 'pcd' :
+                                  type === 'Vaga Grande' ? 'large' :
+                                  type === 'Vaga Pequena' ? 'small' :
+                                  type === 'Vaga Motocicleta' ? 'motorcycle' :
+                                  type === 'Vaga Presa' ? 'linked' :
+                                  type === 'Vaga Livre' ? 'unlinked' :
+                                  type === 'Vaga Comum' ? 'common' : 'secondary'
+                                }
+                                className="text-[10px] px-1.5 py-0"
+                              >
+                                {type}
+                              </Badge>
+                            ))}
+                            {result.spotSnapshot.isCovered && (
+                              <Badge variant="covered" className="text-[10px] px-1.5 py-0">Coberta</Badge>
+                            )}
+                            {result.spotSnapshot.isUncovered && (
+                              <Badge variant="uncovered" className="text-[10px] px-1.5 py-0">Descoberta</Badge>
+                            )}
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-3 min-w-[160px] text-center">
-                          <AlertCircle className="w-6 h-6 text-gray-400 mx-auto mb-1" />
-                          <span className="text-xs text-gray-600">Sem vaga</span>
+                        <div className="text-sm text-muted-foreground italic">
+                          Sem vaga
                         </div>
                       )}
                     </div>
