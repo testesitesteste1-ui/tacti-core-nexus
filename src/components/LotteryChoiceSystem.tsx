@@ -2727,10 +2727,26 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             </div>
                         </div>
 
+                        {/* Resumo de contagem */}
+                        <div className="grid grid-cols-3 gap-3 p-3 bg-muted/50 rounded-lg">
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-primary">{buildingParticipants.length}</p>
+                                <p className="text-xs text-muted-foreground">Participantes</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-blue-600">{buildingSpots.length}</p>
+                                <p className="text-xs text-muted-foreground">Vagas Disponíveis</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-green-600">{Array.from(preAllocations.values()).flat().length}</p>
+                                <p className="text-xs text-muted-foreground">Pré-alocadas</p>
+                            </div>
+                        </div>
+
                         {/* Lista de pré-alocações */}
                         {preAllocations.size > 0 && (
                             <div className="space-y-2">
-                                <Label>Pré-alocações configuradas ({preAllocations.size})</Label>
+                                <Label>Pré-alocações configuradas ({Array.from(preAllocations.values()).flat().length} vagas para {preAllocations.size} participantes)</Label>
                                 <ScrollArea className="h-[200px] border rounded-lg p-3">
                                     <div className="space-y-2">
                                         {Array.from(preAllocations.entries()).map(([participantId, spotIds]) => {
