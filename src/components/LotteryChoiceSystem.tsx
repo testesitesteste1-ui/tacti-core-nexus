@@ -165,6 +165,18 @@ export default function LotteryChoiceSystem(): JSX.Element {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
     }, [drawnOrder, currentTurnIndex, availableSpots, sessionStarted, sessionFinalized, selectedBuilding?.id, isRestored]);
 
+    // Scroll automático para a área de escolha quando muda o participante atual
+    useEffect(() => {
+        if (sessionStarted && currentParticipant?.status === 'choosing' && !sessionFinalized) {
+            setTimeout(() => {
+                const choosingCard = document.getElementById('choosing-card');
+                if (choosingCard) {
+                    choosingCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 150);
+        }
+    }, [currentTurnIndex, sessionStarted, sessionFinalized]);
+
     // ============================================================================
     // 📤 FUNÇÃO: SALVAR RESULTADOS PÚBLICOS DO SORTEIO DE ESCOLHA
     // ============================================================================
@@ -732,7 +744,34 @@ export default function LotteryChoiceSystem(): JSX.Element {
     // 🤚 FUNÇÕES DE SEGUNDA CHANCE PARA AUSENTES
     // ============================================================================
     const handleGiveSecondChance = (participant: DrawnParticipant): void => {
-        setAbsentToGiveChance(participant);
+        // Dar a vez diretamente ao participante ausente
+        const participantIndex = drawnOrder.findIndex(p => p.id === participant.id);
+        if (participantIndex === -1) return;
+
+        const updatedOrder = [...drawnOrder];
+        updatedOrder[participantIndex] = {
+            ...updatedOrder[participantIndex],
+            status: 'choosing',
+            isAbsent: false
+        };
+
+        setDrawnOrder(updatedOrder);
+        setCurrentTurnIndex(participantIndex);
+        setShowAbsentManagerDialog(false);
+        setShowSecondChanceDialog(false);
+
+        toast({
+            title: "Vez concedida! 🎉",
+            description: `${participant.block ? `Bloco ${participant.block} - ` : ''}Unidade ${participant.unit} pode escolher agora.`,
+        });
+
+        // Scroll para a área de escolha
+        setTimeout(() => {
+            const choosingCard = document.getElementById('choosing-card');
+            if (choosingCard) {
+                choosingCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
     };
 
     const handleConfirmSecondChance = (): void => {
@@ -1965,7 +2004,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
 
             {/* VEZ ATUAL */}
             {sessionStarted && currentParticipant && currentParticipant.status === 'choosing' && !sessionFinalized && (
-                <Card className="border-2 border-primary shadow-lg">
+                <Card id="choosing-card" className="border-2 border-primary shadow-lg scroll-mt-4">
                     <CardHeader className="bg-primary/5">
                         <CardTitle className="flex items-center gap-2">
                             <Trophy className="h-5 w-5 text-primary" />
