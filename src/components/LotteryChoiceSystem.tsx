@@ -76,6 +76,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
     const [searchUnitDialog, setSearchUnitDialog] = useState<boolean>(false);
     const [searchUnit, setSearchUnit] = useState<string>('');
     const [searchResults, setSearchResults] = useState<DrawnParticipant[]>([]);
+    const [highlightedParticipantId, setHighlightedParticipantId] = useState<string | null>(null);
+    const [showQuickSearch, setShowQuickSearch] = useState<boolean>(false);
+    const [quickSearchTerm, setQuickSearchTerm] = useState<string>('');
 
     // Estado para vaga pendente de confirmação
     const [pendingSpot, setPendingSpot] = useState<ParkingSpot | null>(null);
@@ -1792,6 +1795,133 @@ export default function LotteryChoiceSystem(): JSX.Element {
                 </Card>
             </div>
 
+            {/* 🔍 BUSCA RÁPIDA DE UNIDADE - Barra flutuante durante o sorteio */}
+            {sessionStarted && !sessionFinalized && (
+                <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+                    <CardContent className="py-4">
+                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                            <div className="flex items-center gap-2 text-primary">
+                                <Search className="h-5 w-5" />
+                                <span className="font-semibold">Busca Rápida</span>
+                            </div>
+                            
+                            <div className="flex-1 relative">
+                                <Input
+                                    placeholder="Digite unidade, bloco ou nome para encontrar na fila..."
+                                    value={quickSearchTerm}
+                                    onChange={(e) => {
+                                        setQuickSearchTerm(e.target.value);
+                                        if (e.target.value.length >= 1) {
+                                            const term = e.target.value.toLowerCase().trim();
+                                            const found = drawnOrder.filter((p: DrawnParticipant) =>
+                                                p.unit.toLowerCase().includes(term) ||
+                                                (p.block && p.block.toLowerCase().includes(term)) ||
+                                                (p.name && p.name.toLowerCase().includes(term))
+                                            );
+                                            setSearchResults(found);
+                                            if (found.length === 1) {
+                                                setHighlightedParticipantId(found[0].id);
+                                            } else {
+                                                setHighlightedParticipantId(null);
+                                            }
+                                        } else {
+                                            setSearchResults([]);
+                                            setHighlightedParticipantId(null);
+                                        }
+                                    }}
+                                    className="pr-10"
+                                />
+                                {quickSearchTerm && (
+                                    <button 
+                                        onClick={() => {
+                                            setQuickSearchTerm('');
+                                            setSearchResults([]);
+                                            setHighlightedParticipantId(null);
+                                        }}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Resultados da busca rápida */}
+                            {searchResults.length > 0 && quickSearchTerm && (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm text-muted-foreground">
+                                        {searchResults.length} encontrado(s):
+                                    </span>
+                                    {searchResults.slice(0, 5).map((p) => {
+                                        const positionInQueue = drawnOrder.filter(
+                                            (dp: DrawnParticipant) => dp.status === 'waiting' || dp.status === 'choosing'
+                                        ).findIndex((dp: DrawnParticipant) => dp.id === p.id);
+                                        const turnsUntil = positionInQueue >= 0 ? positionInQueue : null;
+                                        
+                                        return (
+                                            <div
+                                                key={p.id}
+                                                onClick={() => {
+                                                    setHighlightedParticipantId(p.id);
+                                                    // Scroll para o elemento
+                                                    const element = document.getElementById(`participant-${p.id}`);
+                                                    if (element) {
+                                                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                    }
+                                                }}
+                                                className={`
+                                                    flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-all
+                                                    ${highlightedParticipantId === p.id 
+                                                        ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2' 
+                                                        : 'bg-background hover:bg-muted border'
+                                                    }
+                                                `}
+                                            >
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-sm">
+                                                        {p.block && `${p.block}-`}{p.unit}
+                                                    </span>
+                                                    <div className="flex items-center gap-1">
+                                                        <Badge 
+                                                            variant={
+                                                                p.status === 'choosing' ? 'default' :
+                                                                p.status === 'completed' ? 'normal' :
+                                                                p.status === 'skipped' ? 'uncovered' : 'secondary'
+                                                            }
+                                                            className="text-[10px] px-1"
+                                                        >
+                                                            {p.status === 'choosing' ? '🎯 Vez' :
+                                                             p.status === 'completed' ? '✅ Feito' :
+                                                             p.status === 'skipped' ? '⚠️ Ausente' :
+                                                             `${p.drawOrder}º`}
+                                                        </Badge>
+                                                        {turnsUntil !== null && turnsUntil > 0 && p.status === 'waiting' && (
+                                                            <span className="text-[10px] text-muted-foreground">
+                                                                (faltam {turnsUntil})
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {searchResults.length > 5 && (
+                                        <Badge variant="outline" className="text-xs">
+                                            +{searchResults.length - 5} mais
+                                        </Badge>
+                                    )}
+                                </div>
+                            )}
+
+                            {quickSearchTerm && searchResults.length === 0 && (
+                                <span className="text-sm text-destructive">
+                                    Nenhum participante encontrado
+                                </span>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Progresso do Sorteio */}
             {isDrawing && (
                 <Card>
@@ -2007,14 +2137,17 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                 {drawnOrder.map((participant: DrawnParticipant) => (
                                     <div
                                         key={participant.id}
+                                        id={`participant-${participant.id}`}
                                         className={`p-4 rounded-lg border-2 transition-all ${
-                                            participant.status === 'choosing'
-                                                ? 'border-primary bg-primary/5 shadow-md'
-                                                : participant.status === 'completed'
-                                                    ? 'border-success bg-success/5'
-                                                    : participant.status === 'skipped'
-                                                        ? 'border-orange-400 bg-orange-50'
-                                                        : 'border-muted bg-muted/30'
+                                            highlightedParticipantId === participant.id
+                                                ? 'border-yellow-400 bg-yellow-50 ring-4 ring-yellow-300 shadow-lg animate-pulse'
+                                                : participant.status === 'choosing'
+                                                    ? 'border-primary bg-primary/5 shadow-md'
+                                                    : participant.status === 'completed'
+                                                        ? 'border-success bg-success/5'
+                                                        : participant.status === 'skipped'
+                                                            ? 'border-orange-400 bg-orange-50'
+                                                            : 'border-muted bg-muted/30'
                                         }`}
                                     >
                                         <div className="flex items-center justify-between">
