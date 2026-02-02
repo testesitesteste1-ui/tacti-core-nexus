@@ -97,6 +97,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
 
     // Estado para segunda chance dos ausentes
     const [showSecondChanceDialog, setShowSecondChanceDialog] = useState<boolean>(false);
+    const [showAbsentManagerDialog, setShowAbsentManagerDialog] = useState<boolean>(false);
 
     // Estado para escolha de vaga do parceiro (dupla)
     const [isSelectingPartnerSpot, setIsSelectingPartnerSpot] = useState<boolean>(false);
@@ -1770,11 +1771,19 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card 
+                    className={`${sessionStarted && stats.skipped > 0 ? 'cursor-pointer hover:border-orange-400 transition-colors' : ''}`}
+                    onClick={() => sessionStarted && stats.skipped > 0 && setShowAbsentManagerDialog(true)}
+                >
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <UserX className="h-4 w-4" />
                             Ausentes
+                            {sessionStarted && stats.skipped > 0 && (
+                                <Badge variant="outline" className="ml-auto text-[10px] border-orange-400 text-orange-600">
+                                    Clique para gerenciar
+                                </Badge>
+                            )}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -2868,6 +2877,107 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             <Button onClick={handleFinalizeWithoutAbsent} variant="outline" className="border-red-500 text-red-600">
                                 <X className="mr-2 h-4 w-4" />
                                 Finalizar Sem Dar Vagas aos Ausentes
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* DIALOG: GERENCIADOR DE AUSENTES (durante o sorteio) */}
+            <Dialog open={showAbsentManagerDialog} onOpenChange={setShowAbsentManagerDialog}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <UserX className="h-5 w-5 text-orange-500" />
+                            Gerenciar Ausentes
+                        </DialogTitle>
+                        <DialogDescription>
+                            {drawnOrder.filter(p => p.status === 'skipped').length} participante(s) marcado(s) como ausente.
+                            Você pode dar uma segunda chance para qualquer um deles escolher uma vaga.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        {drawnOrder.filter(p => p.status === 'skipped').length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                                <UserX className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                                <p>Nenhum participante ausente no momento</p>
+                            </div>
+                        ) : (
+                            <ScrollArea className="h-[400px] border rounded-lg p-3">
+                                <div className="space-y-2">
+                                    {drawnOrder
+                                        .filter(p => p.status === 'skipped')
+                                        .sort((a, b) => {
+                                            // Ordenar por bloco e unidade
+                                            const blockA = (a.block || '').toLowerCase();
+                                            const blockB = (b.block || '').toLowerCase();
+                                            if (blockA !== blockB) return blockA.localeCompare(blockB, 'pt-BR', { numeric: true });
+                                            const unitA = (a.unit || '').toLowerCase();
+                                            const unitB = (b.unit || '').toLowerCase();
+                                            return unitA.localeCompare(unitB, 'pt-BR', { numeric: true });
+                                        })
+                                        .map((participant) => {
+                                            const spotsNeeded = participant.numberOfSpots || 1;
+                                            const spotsAllocated = participant.allocatedSpots?.length || 0;
+                                            const needsMoreSpots = spotsAllocated < spotsNeeded;
+                                            
+                                            return (
+                                                <div 
+                                                    key={participant.id} 
+                                                    className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <Badge variant="outline" className="border-orange-400 text-orange-600">
+                                                            {participant.drawOrder}º
+                                                        </Badge>
+                                                        <div>
+                                                            <span className="font-medium">
+                                                                {participant.block && `Bloco ${participant.block} - `}Unidade {participant.unit}
+                                                            </span>
+                                                            {participant.name && (
+                                                                <span className="text-sm text-muted-foreground ml-2">({participant.name})</span>
+                                                            )}
+                                                            <div className="flex gap-1 mt-1">
+                                                                {participant.hasSpecialNeeds && (
+                                                                    <Badge className="text-[10px] px-1.5 py-0 bg-purple-500">PcD</Badge>
+                                                                )}
+                                                                {participant.isElderly && (
+                                                                    <Badge className="text-[10px] px-1.5 py-0 bg-blue-500">Idoso</Badge>
+                                                                )}
+                                                                {participant.hasMotorcycle && (
+                                                                    <Badge className="text-[10px] px-1.5 py-0 bg-amber-700">Moto</Badge>
+                                                                )}
+                                                                {spotsAllocated > 0 && (
+                                                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-green-500 text-green-600">
+                                                                        {spotsAllocated}/{spotsNeeded} vaga(s)
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        className="bg-green-600 hover:bg-green-700 text-white"
+                                                        onClick={() => {
+                                                            setShowAbsentManagerDialog(false);
+                                                            handleGiveSecondChance(participant);
+                                                        }}
+                                                        disabled={!needsMoreSpots || availableSpots.length === 0}
+                                                    >
+                                                        <Hand className="mr-1 h-3 w-3" />
+                                                        {needsMoreSpots ? 'Dar Vez' : 'Completo'}
+                                                    </Button>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+                            </ScrollArea>
+                        )}
+
+                        <div className="flex justify-end">
+                            <Button variant="outline" onClick={() => setShowAbsentManagerDialog(false)}>
+                                Fechar
                             </Button>
                         </div>
                     </div>
