@@ -2674,11 +2674,22 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                     onChange={(e) => setSelectedPreParticipant(e.target.value)}
                                 >
                                     <option value="">Selecione...</option>
-                                    {buildingParticipants.map((p) => (
-                                        <option key={p.id} value={p.id}>
-                                            {p.block && `${p.block} - `}Unid. {p.unit}
-                                        </option>
-                                    ))}
+                                    {[...buildingParticipants]
+                                        .sort((a, b) => {
+                                            // Ordenar por bloco primeiro, depois por unidade
+                                            const blockA = (a.block || '').toLowerCase();
+                                            const blockB = (b.block || '').toLowerCase();
+                                            if (blockA !== blockB) return blockA.localeCompare(blockB, 'pt-BR', { numeric: true });
+                                            const unitA = (a.unit || '').toLowerCase();
+                                            const unitB = (b.unit || '').toLowerCase();
+                                            return unitA.localeCompare(unitB, 'pt-BR', { numeric: true });
+                                        })
+                                        .map((p) => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.block && `${p.block} - `}Unid. {p.unit}
+                                            </option>
+                                        ))
+                                    }
                                 </select>
                             </div>
                             <div className="space-y-2">
@@ -2691,6 +2702,15 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                     <option value="">Selecione...</option>
                                     {buildingSpots
                                         .filter(s => !getPreAllocatedSpotIds().includes(s.id))
+                                        .sort((a, b) => {
+                                            // Ordenar por andar primeiro, depois por número
+                                            const floorA = (a.floor || '').toLowerCase();
+                                            const floorB = (b.floor || '').toLowerCase();
+                                            if (floorA !== floorB) return floorA.localeCompare(floorB, 'pt-BR', { numeric: true });
+                                            const numA = (a.number || '').toLowerCase();
+                                            const numB = (b.number || '').toLowerCase();
+                                            return numA.localeCompare(numB, 'pt-BR', { numeric: true });
+                                        })
                                         .map((s) => (
                                             <option key={s.id} value={s.id}>
                                                 Vaga {s.number} - {s.floor}
