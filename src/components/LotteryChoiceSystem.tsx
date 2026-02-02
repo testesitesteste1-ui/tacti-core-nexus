@@ -428,9 +428,15 @@ export default function LotteryChoiceSystem(): JSX.Element {
 
             // 📡 ATUALIZAR EM TEMPO REAL
             if (selectedBuilding?.id) {
-                const newStatus = updatedOrder.every((p: DrawnParticipant) => 
+                // Não marcar como 'completed' se ainda há ausentes sem vagas - deixar o dialog decidir
+                const hasAbsentWithoutSpots = updatedOrder.some(
+                    (p: DrawnParticipant) => p.status === 'skipped' && p.allocatedSpots.length === 0
+                );
+                const allDoneCheck = updatedOrder.every((p: DrawnParticipant) => 
                     p.status === 'completed' || p.status === 'skipped'
-                ) ? 'completed' : 'in_progress';
+                );
+                // Só marcar como completed se todos terminaram E não há ausentes sem vagas
+                const newStatus = (allDoneCheck && !hasAbsentWithoutSpots) ? 'completed' : 'in_progress';
 
                 saveChoiceLotteryLive(
                     selectedBuilding.id,
@@ -712,7 +718,16 @@ export default function LotteryChoiceSystem(): JSX.Element {
         // Finalizar sem dar vagas aos ausentes
         setShowSecondChanceDialog(false);
         setSessionFinalized(true);
-        saveChoiceResultsToPublic(drawnOrder.filter(p => p.allocatedSpots.length > 0));
+        
+        // Filtrar apenas participantes que receberam vagas
+        const participantsWithSpots = drawnOrder.filter(p => p.allocatedSpots.length > 0);
+        saveChoiceResultsToPublic(participantsWithSpots);
+
+        // 📡 Atualizar o live para remover ausentes sem vagas da visualização
+        if (selectedBuilding?.id) {
+            // Limpar dados ao vivo já que o resultado final foi publicado
+            clearChoiceLotteryLive(selectedBuilding.id);
+        }
 
         toast({
             title: "Sorteio Finalizado! 🎉",

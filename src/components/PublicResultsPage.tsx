@@ -953,20 +953,20 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                     {/* Spot Info */}
                     <div className="flex-shrink-0">
                       {result.spotSnapshot ? (
-                        <div className="bg-gradient-to-br from-emerald-100 to-emerald-200 border-2 border-emerald-400 rounded-lg p-3 min-w-[160px]">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <ParkingCircle className="w-4 h-4 text-emerald-700" />
-                            <span className="text-xs font-medium text-emerald-800">Vaga Sorteada</span>
+                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-2 border-emerald-400 rounded-xl p-4 min-w-[200px]">
+                          <div className="flex items-center gap-2 mb-2">
+                            <ParkingCircle className="w-5 h-5 text-emerald-700" />
+                            <span className="text-sm font-semibold text-emerald-800">Vaga Sorteada</span>
                           </div>
-                          <div className="text-3xl font-extrabold text-emerald-950 mb-0.5">
+                          <div className="text-4xl font-extrabold text-emerald-950 mb-2">
                             {result.spotSnapshot.number}
                           </div>
-                          <div className="text-xs text-green-700">
-                            <div className="flex items-center gap-1 mb-1">
-                              <MapPin className="w-3 h-3" />
-                              {result.spotSnapshot.floor}
+                          <div className="text-sm text-emerald-700">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <MapPin className="w-4 h-4" />
+                              <span className="font-medium">{result.spotSnapshot.floor}</span>
                             </div>
-                            <div className="flex flex-wrap gap-1 mt-1">
+                            <div className="flex flex-wrap gap-1.5 mt-2">
                               {result.spotSnapshot.type.map((type, i) => (
                                 <Badge 
                                   key={i} 
@@ -981,19 +981,19 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                                     type === 'Vaga Comum' ? 'common' :
                                     'secondary'
                                   }
-                                  className="text-[10px] px-1.5 py-0"
+                                  className="text-xs px-2 py-0.5 font-medium"
                                 >
                                   {type}
                                 </Badge>
                               ))}
                               {result.spotSnapshot.isCovered && (
-                                <Badge variant="covered" className="text-[10px] px-1.5 py-0">
-                                  Vaga Coberta
+                                <Badge variant="covered" className="text-xs px-2 py-0.5 font-medium">
+                                  Coberta
                                 </Badge>
                               )}
                               {result.spotSnapshot.isUncovered && (
-                                <Badge variant="uncovered" className="text-[10px] px-1.5 py-0">
-                                  Vaga Descoberta
+                                <Badge variant="uncovered" className="text-xs px-2 py-0.5 font-medium">
+                                  Descoberta
                                 </Badge>
                               )}
                             </div>
