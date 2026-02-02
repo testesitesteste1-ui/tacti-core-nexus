@@ -2041,11 +2041,48 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                         </div>
 
                                         {participant.allocatedSpots.length > 0 && (
-                                            <div className="mt-3 pl-11 flex flex-wrap gap-2">
+                                            <div className="mt-3 pl-11 space-y-1">
                                                 {participant.allocatedSpots.map((spot: ParkingSpot) => (
-                                                    <Badge key={spot.id} variant="secondary" className="text-xs">
-                                                        🅿️ {spot.number}
-                                                    </Badge>
+                                                    <div key={spot.id}>
+                                                        <div className="text-sm font-medium text-success">
+                                                            Vaga {spot.number} - {spot.floor}
+                                                        </div>
+                                                        <div className="mt-0.5 flex items-center gap-1 flex-wrap">
+                                                            {(() => {
+                                                                const typeArray = spot?.type ? (Array.isArray(spot.type) ? spot.type : [spot.type]) : [];
+                                                                const filteredTypes = typeArray.filter(type => {
+                                                                    if ((spot?.isCovered || spot?.isUncovered) && type === 'Vaga Comum') return false;
+                                                                    if (type === 'Vaga Coberta' || type === 'Vaga Descoberta') return false;
+                                                                    return true;
+                                                                });
+                                                                const showCommon = filteredTypes.length === 0 && !spot?.isCovered && !spot?.isUncovered;
+                                                                return showCommon ? ['Vaga Comum'] : filteredTypes;
+                                                            })().map((type, i) => (
+                                                                <Badge
+                                                                    key={i}
+                                                                    variant={
+                                                                        type === 'Vaga Idoso' ? 'elderly' :
+                                                                        type === 'Vaga PcD' ? 'pcd' :
+                                                                        type === 'Vaga Grande' ? 'large' :
+                                                                        type === 'Vaga Pequena' ? 'small' :
+                                                                        type === 'Vaga Presa' ? 'linked' :
+                                                                        type === 'Vaga Livre' ? 'unlinked' :
+                                                                        type === 'Vaga Motocicleta' ? 'motorcycle' :
+                                                                        type === 'Vaga Comum' ? 'common' : 'secondary'
+                                                                    }
+                                                                    className="text-[10px] px-1.5 py-0"
+                                                                >
+                                                                    {type}
+                                                                </Badge>
+                                                            ))}
+                                                            {spot?.isCovered && (
+                                                                <Badge variant="covered" className="text-[10px] px-1.5 py-0">Coberta</Badge>
+                                                            )}
+                                                            {spot?.isUncovered && (
+                                                                <Badge variant="uncovered" className="text-[10px] px-1.5 py-0">Descoberta</Badge>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 ))}
                                             </div>
                                         )}
