@@ -406,12 +406,12 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
     );
   }
 
-  // 📡 MOSTRAR SORTEIO AO VIVO (prioridade sobre resultados finais)
-  if (liveData && liveData.status === 'in_progress') {
+  // 📡 MOSTRAR SORTEIO AO VIVO (quando em andamento OU recém completado)
+  if (liveData && (liveData.status === 'in_progress' || liveData.status === 'completed')) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200">
         {/* Header Ao Vivo */}
-        <div className="bg-gradient-to-r from-red-600 via-red-500 to-orange-500 text-white relative overflow-hidden">
+        <div className={`${liveData.status === 'completed' ? 'bg-gradient-to-r from-green-600 via-green-500 to-emerald-500' : 'bg-gradient-to-r from-red-600 via-red-500 to-orange-500'} text-white relative overflow-hidden`}>
           <div className="absolute inset-0 opacity-10">
             <div className="absolute inset-0" style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
@@ -429,13 +429,15 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                 />
               </div>
 
-              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full mb-4 animate-pulse">
-                <Radio className="w-4 h-4" />
-                <span className="text-sm font-bold uppercase tracking-wider">Ao Vivo</span>
+              <div className={`inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full mb-4 ${liveData.status === 'in_progress' ? 'animate-pulse' : ''}`}>
+                {liveData.status === 'completed' ? <CheckCircle2 className="w-4 h-4" /> : <Radio className="w-4 h-4" />}
+                <span className="text-sm font-bold uppercase tracking-wider">
+                  {liveData.status === 'completed' ? 'Concluído' : 'Ao Vivo'}
+                </span>
               </div>
 
               <h1 className="text-4xl md:text-5xl font-bold mb-3 drop-shadow-lg">
-                Sorteio em Andamento
+                {liveData.status === 'completed' ? 'Sorteio Finalizado' : 'Sorteio em Andamento'}
               </h1>
 
               <div className="flex items-center gap-2 text-white/90">
@@ -452,30 +454,37 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
 
         {/* Progresso */}
         <div className="max-w-7xl mx-auto px-6 py-8">
-          <Card className="mb-6 border-red-200 bg-gradient-to-r from-red-50 to-orange-50">
+          <Card className={`mb-6 ${liveData.status === 'completed' ? 'border-green-200 bg-gradient-to-r from-green-50 to-emerald-50' : 'border-red-200 bg-gradient-to-r from-red-50 to-orange-50'}`}>
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="bg-red-500 p-3 rounded-full animate-pulse">
-                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  <div className={`${liveData.status === 'completed' ? 'bg-green-500' : 'bg-red-500 animate-pulse'} p-3 rounded-full`}>
+                    {liveData.status === 'completed' ? (
+                      <CheckCircle2 className="w-6 h-6 text-white" />
+                    ) : (
+                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    )}
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-red-900">
-                      Vez: {liveData.currentTurnIndex + 1}º participante
+                    <p className={`text-lg font-bold ${liveData.status === 'completed' ? 'text-green-900' : 'text-red-900'}`}>
+                      {liveData.status === 'completed' 
+                        ? `${liveData.completedCount} participantes contemplados`
+                        : `Vez: ${liveData.currentTurnIndex + 1}º participante`
+                      }
                     </p>
-                    <p className="text-sm text-red-700">
+                    <p className={`text-sm ${liveData.status === 'completed' ? 'text-green-700' : 'text-red-700'}`}>
                       {liveData.completedCount} de {liveData.totalParticipants} já escolheram
                     </p>
                   </div>
                 </div>
                 <div className="w-full md:w-64">
-                  <div className="w-full bg-red-200 rounded-full h-3">
+                  <div className={`w-full ${liveData.status === 'completed' ? 'bg-green-200' : 'bg-red-200'} rounded-full h-3`}>
                     <div 
-                      className="bg-red-500 h-3 rounded-full transition-all duration-500" 
+                      className={`${liveData.status === 'completed' ? 'bg-green-500' : 'bg-red-500'} h-3 rounded-full transition-all duration-500`}
                       style={{ width: `${(liveData.completedCount / liveData.totalParticipants) * 100}%` }}
                     />
                   </div>
-                  <p className="text-xs text-red-600 mt-1 text-right">
+                  <p className={`text-xs ${liveData.status === 'completed' ? 'text-green-600' : 'text-red-600'} mt-1 text-right`}>
                     {Math.round((liveData.completedCount / liveData.totalParticipants) * 100)}% concluído
                   </p>
                 </div>

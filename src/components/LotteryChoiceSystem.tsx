@@ -170,6 +170,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
         try {
             const results: LotteryResult[] = [];
             completedOrder.forEach((participant) => {
+                // Buscar dados completos do participante original
+                const originalParticipant = participants.find(p => p.id === participant.id);
+                
                 participant.allocatedSpots.forEach((spot) => {
                     const result: LotteryResult = {
                         id: `choice-${participant.id}-${spot.id}`,
@@ -182,7 +185,18 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             name: participant.name,
                             block: participant.block,
                             unit: participant.unit,
-                        },
+                            // Incluir todos os campos de veículos e preferências
+                            hasLargeCar: originalParticipant?.hasLargeCar || (participant as any).hasLargeCar || false,
+                            hasSmallCar: originalParticipant?.hasSmallCar || (participant as any).hasSmallCar || false,
+                            hasMotorcycle: originalParticipant?.hasMotorcycle || (participant as any).hasMotorcycle || false,
+                            prefersCommonSpot: originalParticipant?.prefersCommonSpot || (participant as any).prefersCommonSpot || false,
+                            prefersCovered: originalParticipant?.prefersCovered || (participant as any).prefersCovered || false,
+                            prefersUncovered: originalParticipant?.prefersUncovered || (participant as any).prefersUncovered || false,
+                            prefersLinkedSpot: originalParticipant?.prefersLinkedSpot || (participant as any).prefersLinkedSpot || false,
+                            prefersUnlinkedSpot: originalParticipant?.prefersUnlinkedSpot || (participant as any).prefersUnlinkedSpot || false,
+                            prefersSmallSpot: originalParticipant?.prefersSmallSpot || (participant as any).prefersSmallSpot || false,
+                            numberOfSpots: originalParticipant?.numberOfSpots || (participant as any).numberOfSpots || 1,
+                        } as any,
                         spotSnapshot: {
                             number: spot.number,
                             floor: spot.floor,
