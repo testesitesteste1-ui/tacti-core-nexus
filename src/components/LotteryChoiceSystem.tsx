@@ -583,13 +583,33 @@ export default function LotteryChoiceSystem(): JSX.Element {
             description: `${allocatedCount} participante(s) ausente(s) receberam vagas aleatoriamente.`,
         });
 
+        // 📡 ATUALIZAR QR CODE EM TEMPO REAL COM OS RESULTADOS DO SORTEIO AUTOMÁTICO
+        if (selectedBuilding?.id) {
+            saveChoiceLotteryLive(
+                selectedBuilding.id,
+                selectedBuilding.name || 'Condomínio',
+                'Sorteio de Escolha',
+                updatedOrder,
+                currentTurnIndex,
+                'completed',
+                selectedBuilding.company
+            );
+        }
+
         // Verificar se todos completaram
         const allDone = updatedOrder.every((p: DrawnParticipant) => 
             p.status === 'completed' || (p.status === 'skipped' && p.allocatedSpots.length > 0)
         );
 
         if (allDone) {
-            handleFinalizeSession(updatedOrder, remainingSpots);
+            // Finalizar e salvar resultados públicos
+            setSessionFinalized(true);
+            saveChoiceResultsToPublic(updatedOrder.filter(p => p.allocatedSpots.length > 0));
+            
+            toast({
+                title: "Sorteio Finalizado! 🎉",
+                description: "Todos os participantes foram processados.",
+            });
         }
     };
 
@@ -601,6 +621,20 @@ export default function LotteryChoiceSystem(): JSX.Element {
         const absentWithoutSpots = finalOrder.filter(p => p.status === 'skipped' && p.allocatedSpots.length === 0);
         
         if (absentWithoutSpots.length > 0 && remainingSpots.length > 0) {
+            // 📡 MANTER OS RESULTADOS ATUAIS NO QR CODE (não limpar!)
+            // Atualizar status para mostrar que estamos aguardando decisão sobre ausentes
+            if (selectedBuilding?.id) {
+                saveChoiceLotteryLive(
+                    selectedBuilding.id,
+                    selectedBuilding.name || 'Condomínio',
+                    'Sorteio de Escolha',
+                    finalOrder,
+                    currentTurnIndex,
+                    'in_progress', // Manter como in_progress para não sumir os resultados
+                    selectedBuilding.company
+                );
+            }
+            
             // Mostrar opção de segunda chance antes de finalizar
             setShowSecondChanceDialog(true);
             return;
