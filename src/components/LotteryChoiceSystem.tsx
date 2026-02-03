@@ -1829,12 +1829,12 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     )}
 
                     {!sessionStarted && (
-                        <Button
+                    <Button
                             onClick={() => setIsPreAllocationOpen(true)}
                             variant="outline"
                         >
                             <Link className="mr-2 h-4 w-4" />
-                            Pré-Alocação
+                            Pré-Alocação {preAllocations.size > 0 && `(${Array.from(preAllocations.values()).flat().length})`}
                         </Button>
                     )}
 
@@ -1903,24 +1903,23 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className={`${stats.skipped > 0 ? 'border-orange-300' : ''}`}>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <UserX className="h-4 w-4" />
+                            <UserX className="h-4 w-4 text-orange-500" />
                             Ausentes
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-2">
                         <div className="text-2xl font-bold text-orange-500">{stats.skipped}</div>
-                        {sessionStarted && stats.skipped > 0 && (
+                        {sessionStarted && stats.skipped > 0 && !sessionFinalized && (
                             <Button 
                                 onClick={() => setShowAbsentManagerDialog(true)}
-                                variant="outline"
                                 size="sm"
-                                className="mt-2 w-full border-orange-400 text-orange-600 hover:bg-orange-50"
+                                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                             >
                                 <Hand className="mr-2 h-4 w-4" />
-                                Gerenciar Ausentes
+                                Gerenciar
                             </Button>
                         )}
                     </CardContent>
@@ -3310,9 +3309,18 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                 onChange={(e) => setSelectedPartnerForGroup(e.target.value)}
                             >
                                 <option value="">Escolha um participante...</option>
-                                {availablePartnersForGroup.map((p) => (
+                                {[...availablePartnersForGroup]
+                                    .sort((a, b) => {
+                                        const blockA = (a.block || '').toLowerCase();
+                                        const blockB = (b.block || '').toLowerCase();
+                                        if (blockA !== blockB) return blockA.localeCompare(blockB, 'pt-BR', { numeric: true });
+                                        const unitA = (a.unit || '').toLowerCase();
+                                        const unitB = (b.unit || '').toLowerCase();
+                                        return unitA.localeCompare(unitB, 'pt-BR', { numeric: true });
+                                    })
+                                    .map((p) => (
                                     <option key={p.id} value={p.id}>
-                                        {p.block ? `Bl. ${p.block} - ` : ''}Un. {p.unit} - {p.name || 'Sem nome'} (Posição: {p.drawOrder}º)
+                                        {p.block ? `Bl. ${p.block} - ` : ''}Un. {p.unit} - {p.name || 'Sem nome'} (Posição: {p.drawOrder}°)
                                     </option>
                                 ))}
                             </select>
