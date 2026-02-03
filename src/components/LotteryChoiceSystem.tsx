@@ -48,7 +48,7 @@ interface DrawnParticipant extends Participant {
 // ============================================================================
 export default function LotteryChoiceSystem(): JSX.Element {
     // ✅ CONTEXTO REAL
-    const { participants, parkingSpots, selectedBuilding } = useAppContext();
+    const { participants, parkingSpots, selectedBuilding, saveLotterySession } = useAppContext();
     const { toast } = useToast();
 
     // Filtrar por prédio selecionado
@@ -112,6 +112,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
     // 💾 PERSISTÊNCIA DO SORTEIO
     // ============================================================================
     const STORAGE_KEY = `lottery-choice-${selectedBuilding?.id}`;
+    const PRE_ALLOCATION_KEY = `lottery-choice-prealloc-${selectedBuilding?.id}`;
 
     // Carregar dados salvos ao montar o componente
     useEffect(() => {
@@ -148,7 +149,26 @@ export default function LotteryChoiceSystem(): JSX.Element {
             setAvailableSpots(buildingSpots);
             setIsRestored(true);
         }
+
+        // Carregar pré-alocações salvas
+        const savedPreAlloc = localStorage.getItem(PRE_ALLOCATION_KEY);
+        if (savedPreAlloc) {
+            try {
+                const preAllocData = JSON.parse(savedPreAlloc);
+                setPreAllocations(new Map(preAllocData));
+            } catch (error) {
+                console.error('Erro ao restaurar pré-alocações:', error);
+            }
+        }
     }, [selectedBuilding?.id]);
+
+    // Salvar pré-alocações sempre que mudar
+    useEffect(() => {
+        if (!selectedBuilding?.id || sessionStarted) return;
+        
+        const preAllocArray = Array.from(preAllocations.entries());
+        localStorage.setItem(PRE_ALLOCATION_KEY, JSON.stringify(preAllocArray));
+    }, [preAllocations, selectedBuilding?.id, sessionStarted]);
 
     // Salvar dados sempre que mudarem
     useEffect(() => {
@@ -671,12 +691,85 @@ export default function LotteryChoiceSystem(): JSX.Element {
         }
 
         setSessionFinalized(true);
+        
+        // Salvar no histórico de sorteios
+        saveChoiceSessionToHistory(finalOrder.filter(p => p.allocatedSpots.length > 0));
+        
+        // Salvar resultados públicos
         saveChoiceResultsToPublic(finalOrder.filter(p => p.allocatedSpots.length > 0));
 
         toast({
             title: "Sorteio Finalizado! 🎉",
             description: "Todos os participantes foram processados.",
         });
+    };
+
+    // ============================================================================
+    // 💾 FUNÇÃO: SALVAR SESSÃO NO HISTÓRICO
+    // ============================================================================
+    const saveChoiceSessionToHistory = (completedOrder: DrawnParticipant[]): void => {
+        if (!selectedBuilding?.id) return;
+
+        const results: LotteryResult[] = [];
+        completedOrder.forEach((participant) => {
+            const originalParticipant = participants.find(p => p.id === participant.id);
+            
+            participant.allocatedSpots.forEach((spot) => {
+                const result: LotteryResult = {
+                    id: `choice-${participant.id}-${spot.id}`,
+                    participantId: participant.id,
+                    parkingSpotId: spot.id,
+                    timestamp: new Date(),
+                    priority: participant.hasSpecialNeeds ? 'special-needs' :
+                              participant.isElderly ? 'elderly' : 'normal',
+                    participantSnapshot: {
+                        name: participant.name,
+                        block: participant.block,
+                        unit: participant.unit,
+                        hasLargeCar: originalParticipant?.hasLargeCar || false,
+                        hasSmallCar: originalParticipant?.hasSmallCar || false,
+                        hasMotorcycle: originalParticipant?.hasMotorcycle || false,
+                        prefersCommonSpot: originalParticipant?.prefersCommonSpot || false,
+                        prefersCovered: originalParticipant?.prefersCovered || false,
+                        prefersUncovered: originalParticipant?.prefersUncovered || false,
+                        prefersLinkedSpot: originalParticipant?.prefersLinkedSpot || false,
+                        prefersUnlinkedSpot: originalParticipant?.prefersUnlinkedSpot || false,
+                        prefersSmallSpot: originalParticipant?.prefersSmallSpot || false,
+                        numberOfSpots: originalParticipant?.numberOfSpots || 1,
+                    } as any,
+                    spotSnapshot: {
+                        number: spot.number,
+                        floor: spot.floor,
+                        type: spot.type,
+                        size: spot.size,
+                        isCovered: spot.isCovered,
+                        isUncovered: spot.isUncovered,
+                    },
+                };
+                results.push(result);
+            });
+        });
+
+        const sessionId = `choice-session-${Date.now()}`;
+        const session: LotterySession = {
+            id: sessionId,
+            buildingId: selectedBuilding.id,
+            name: `Sorteio de Escolha - ${new Date().toLocaleDateString('pt-BR')}`,
+            date: new Date(),
+            participants: completedOrder.map(p => p.id),
+            availableSpots: buildingSpots.map(s => s.id),
+            results: results,
+            status: 'completed',
+            settings: {
+                allowSharedSpots: false,
+                prioritizeElders: true,
+                prioritizeSpecialNeeds: true,
+                zoneByProximity: false,
+            },
+        };
+
+        saveLotterySession(session);
+        console.log('✅ Sessão salva no histórico:', sessionId);
     };
 
     // ============================================================================
@@ -1810,23 +1903,26 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     </CardContent>
                 </Card>
 
-                <Card 
-                    className={`${sessionStarted && stats.skipped > 0 ? 'cursor-pointer hover:border-orange-400 transition-colors' : ''}`}
-                    onClick={() => sessionStarted && stats.skipped > 0 && setShowAbsentManagerDialog(true)}
-                >
+                <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <UserX className="h-4 w-4" />
                             Ausentes
-                            {sessionStarted && stats.skipped > 0 && (
-                                <Badge variant="outline" className="ml-auto text-[10px] border-orange-400 text-orange-600">
-                                    Clique para gerenciar
-                                </Badge>
-                            )}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-orange-500">{stats.skipped}</div>
+                        {sessionStarted && stats.skipped > 0 && (
+                            <Button 
+                                onClick={() => setShowAbsentManagerDialog(true)}
+                                variant="outline"
+                                size="sm"
+                                className="mt-2 w-full border-orange-400 text-orange-600 hover:bg-orange-50"
+                            >
+                                <Hand className="mr-2 h-4 w-4" />
+                                Gerenciar Ausentes
+                            </Button>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -2209,7 +2305,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                                 ? 'bg-orange-400 text-white'
                                                                 : 'bg-muted text-muted-foreground'
                                                 }`}>
-                                                    {participant.drawOrder}
+                                                    {participant.drawOrder}°
                                                 </div>
                                                 <div>
                                                     <div className="font-medium flex items-center gap-2 flex-wrap">
