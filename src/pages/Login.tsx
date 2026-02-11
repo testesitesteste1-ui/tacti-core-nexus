@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lock, Mail } from 'lucide-react';
 import exeventosLogo from '@/assets/exeventos-logo.png';
-import mageventosLogo from '@/assets/mageventos-logo.jpg';
 import cityBackground from '@/assets/city-background.jpg';
 
 export const Login = () => {
@@ -48,16 +47,11 @@ export const Login = () => {
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
       <Card className="w-full max-w-md shadow-elegant relative z-10">
         <CardHeader className="space-y-6 text-center">
-          <div className="flex justify-center gap-8 items-center mb-4">
+          <div className="flex justify-center items-center mb-4">
             <img 
               src={exeventosLogo} 
               alt="Ex Eventos" 
               className="h-20 w-auto object-contain"
-            />
-            <img 
-              src={mageventosLogo} 
-              alt="Mag Eventos" 
-              className="h-16 w-auto object-contain"
             />
           </div>
           <div>

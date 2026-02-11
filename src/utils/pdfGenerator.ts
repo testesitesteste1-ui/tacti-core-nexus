@@ -1,20 +1,18 @@
 import { LotteryResult, Participant, ParkingSpot } from '@/types/lottery';
 import exeventosLogo from '@/assets/exeventos-logo.png';
-import mageventosLogo from '@/assets/mageventos-logo.jpg';
 
 export const generateLotteryPDF = (
   sessionName: string,
   results: LotteryResult[],
   participants: Participant[],
   parkingSpots: ParkingSpot[],
-  companyType: 'exvagas' | 'mageventos' = 'exvagas',
+  companyType: string = 'exvagas',
   buildingName?: string,
   orderBy: 'participant' | 'spot' = 'participant' // ✅ ADICIONAR ESTA LINHA
 ) => {
-  const isExEventos = companyType === 'exvagas';
-  const companyLogo = isExEventos ? exeventosLogo : mageventosLogo;
-  const companyName = isExEventos ? 'Ex Eventos' : 'Mag Eventos';
-  const companyColor = isExEventos ? '#4f46e5' : '#d4a03e';
+  const companyLogo = exeventosLogo;
+  const companyName = 'Ex Eventos';
+  const companyColor = '#4f46e5';
 
   // ✅ ORDENAR RESULTADOS BASEADO NO PARÂMETRO
   let sortedResults: LotteryResult[];
@@ -283,7 +281,7 @@ export const generateLotteryPDF = (
     <body>
       <div class="header">
         <div class="logo-container">
-          <img src="${companyLogo}" alt="${companyName}" style="max-width: 200px; max-height: 120px; height: auto; ${isExEventos ? '' : 'background: white; padding: 10px; border-radius: 8px;'}" />
+          <img src="${companyLogo}" alt="${companyName}" style="max-width: 200px; max-height: 120px; height: auto;" />
         </div>
         <div class="company-name">${companyName}</div>
         <h1>Relatório do Sorteio de Vagas</h1>
@@ -366,7 +364,7 @@ export const generateLotteryPDF = (
       </div>
 
       <div class="footer">
-        <p><strong>${companyName} - ${isExEventos ? 'Inteligência Condominial' : 'Gestão de Eventos'}</strong></p>
+        <p><strong>${companyName} - Inteligência Condominial</strong></p>
         <p>Este documento foi gerado automaticamente pelo Sistema de Sorteio Eletrônico</p>
         <p>Para validação, verifique a integridade dos dados com os registros oficiais</p>
       </div>

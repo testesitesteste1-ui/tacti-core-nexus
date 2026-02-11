@@ -7,7 +7,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/context/AppContext';
 import { generateLotteryPDF } from '@/utils/pdfGenerator';
 import exeventosLogo from '@/assets/exeventos-logo.png';
-import mageventosLogo from '@/assets/mageventos-logo.jpg';
 
 interface QRCodeManagerProps {
   buildingId: string;
@@ -147,8 +146,8 @@ export const QRCodeManager: React.FC<QRCodeManagerProps> = ({ buildingId, buildi
           {/* Logo da empresa */}
           <div className="w-full flex justify-center mb-2">
             <img 
-              src={selectedBuilding?.company === 'mageventos' ? mageventosLogo : exeventosLogo}
-              alt={`Logo ${selectedBuilding?.company === 'mageventos' ? 'Mageventos' : 'ExEventos'}`}
+              src={exeventosLogo}
+              alt="Ex Eventos"
               className="h-16 object-contain mix-blend-multiply"
             />
           </div>

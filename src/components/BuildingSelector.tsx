@@ -25,7 +25,7 @@ export const BuildingSelector = ({ onBuildingSelected }: BuildingSelectorProps) 
   const [formData, setFormData] = useState({
     name: '',
     address: '',
-    company: 'exvagas' as 'exvagas' | 'mageventos',
+    company: 'exvagas' as 'exvagas',
   });
 
   // Import useAuth to check permissions
@@ -196,30 +196,6 @@ export const BuildingSelector = ({ onBuildingSelected }: BuildingSelectorProps) 
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Empresa Responsável *</Label>
-                    <Select
-                      value={formData.company}
-                      onValueChange={(value: 'exvagas' | 'mageventos') => 
-                        setFormData({ ...formData, company: value })
-                      }
-                    >
-                      <SelectTrigger id="company">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="exvagas">
-                          <span className="flex items-center gap-2">
-                            <span className="font-ink-free text-red-600">EX</span>
-                            <span className="font-cambria">Eventos</span>
-                          </span>
-                        </SelectItem>
-                        <SelectItem value="mageventos">
-                          Mag Eventos
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                   <div className="flex justify-end space-x-2">
                     <Button

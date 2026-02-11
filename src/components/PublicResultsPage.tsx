@@ -27,7 +27,6 @@ import {
   Loader2
 } from 'lucide-react';
 import exeventosLogo from '@/assets/exeventos-logo.png';
-import mageventosLogo from '@/assets/mageventos-logo.jpg';
 
 interface Props {
   buildingId?: string;
@@ -221,17 +220,6 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
   const companyTheme = useMemo(() => {
     const company = data?.company || 'exvagas';
 
-    if (company === 'mageventos') {
-      return {
-        name: 'Mag Eventos',
-        logo: mageventosLogo,
-        gradient: 'from-purple-600 via-pink-600 to-rose-600',
-        accent: 'purple',
-        bgPattern: 'bg-purple-50',
-      };
-    }
-
-    // Default: exvagas ou exeventos
     return {
       name: 'Ex Eventos',
       logo: exeventosLogo,
@@ -357,7 +345,7 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
       resultsForPDF,
       participantsForPDF,
       spotsForPDF,
-      (data.company || 'exvagas') as 'exvagas' | 'mageventos',
+      (data.company || 'exvagas'),
       data.buildingName
     );
   };
@@ -423,8 +411,8 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
               {/* Logo da Empresa */}
               <div className="bg-white rounded-xl p-3 mb-6 shadow-lg">
                 <img 
-                  src={liveData.company === 'mageventos' ? mageventosLogo : exeventosLogo}
-                  alt={`Logo ${liveData.company === 'mageventos' ? 'Mageventos' : 'ExEventos'}`}
+                  src={exeventosLogo}
+                  alt="Ex Eventos"
                   className="h-12 md:h-16 object-contain"
                 />
               </div>
