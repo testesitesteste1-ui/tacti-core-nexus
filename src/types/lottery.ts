@@ -2,7 +2,7 @@ export interface Building {
   id: string;
   name: string;
   address?: string;
-  company?: 'exvagas' | 'mageventos'; // Empresa responsável pelo condomínio
+  company?: 'exvagas'; // Empresa responsável pelo condomínio
   createdAt: Date;
 }
 

@@ -7,7 +7,6 @@ import { useNavigate } from "react-router-dom";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import exeventosLogo from "@/assets/exeventos-logo.png";
-import mageventosLogo from "@/assets/mageventos-logo.jpg";
 import { Separator } from "@/components/ui/separator";
 
 interface NavigationProps {
@@ -23,7 +22,7 @@ const NavigationContent = ({
   onChangeBuildingClick,
   buildingName,
   companyType,
-}: NavigationProps & { onItemClick?: () => void; buildingName?: string; companyType?: 'exvagas' | 'mageventos' }) => {
+}: NavigationProps & { onItemClick?: () => void; buildingName?: string; companyType?: string }) => {
   const { currentUser, signOut, hasPermission } = useAuth();
   const navigate = useNavigate();
 
@@ -47,15 +46,12 @@ const NavigationContent = ({
     const permission = permissionMap[item.id];
     return permission ? hasPermission(permission) : true;
   });
-  const isExEventos = companyType === 'exvagas' || !companyType;
-  const logo = isExEventos ? exeventosLogo : mageventosLogo;
-  const companyName = isExEventos ? (
+  const logo = exeventosLogo;
+  const companyName = (
     <>
       <span className="font-ink-free text-red-600">Ex</span>{" "}
       <span className="font-cambria text-black">Eventos</span>
     </>
-  ) : (
-    <span className="text-[#d4a03e]" style={{ fontFamily: 'sans-serif' }}>Mag Eventos</span>
   );
 
   return (
@@ -63,7 +59,7 @@ const NavigationContent = ({
     <div className="p-6 border-b">
       <div className="flex items-center space-x-3">
         <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-white p-2">
-          <img src={logo} alt={isExEventos ? "Ex Eventos" : "Mag Eventos"} className="w-full h-full object-contain" />
+          <img src={logo} alt="Ex Eventos" className="w-full h-full object-contain" />
         </div>
         <div>
           <h1 className="text-lg font-bold text-foreground">
@@ -162,15 +158,12 @@ export const Navigation = ({ currentView, onViewChange, onChangeBuildingClick }:
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { selectedBuilding } = useAppContext();
   
-  const isExEventos = selectedBuilding?.company === 'exvagas' || !selectedBuilding?.company;
-  const logo = isExEventos ? exeventosLogo : mageventosLogo;
-  const companyName = isExEventos ? (
+  const logo = exeventosLogo;
+  const companyName = (
     <>
       <span className="font-ink-free text-red-600">Ex</span>{" "}
       <span className="font-cambria text-black">Eventos</span>
     </>
-  ) : (
-    <span className="text-[#d4a03e]" style={{ fontFamily: 'sans-serif' }}>Mag Eventos</span>
   );
 
   return (
@@ -192,7 +185,7 @@ export const Navigation = ({ currentView, onViewChange, onChangeBuildingClick }:
         <div className="flex items-center justify-between p-4 bg-card border-b shadow-soft">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white p-1">
-              <img src={logo} alt={isExEventos ? "Ex Eventos" : "Mag Eventos"} className="w-full h-full object-contain" />
+              <img src={logo} alt="Ex Eventos" className="w-full h-full object-contain" />
             </div>
             <div>
               <h1 className="text-sm font-bold text-foreground">

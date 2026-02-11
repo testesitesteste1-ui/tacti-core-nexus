@@ -1300,11 +1300,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
             return;
         }
 
-        const companyType = selectedBuilding?.company || 'exvagas';
-        const isExEventos = companyType === 'exvagas';
-        const companyLogo = isExEventos ? '/src/assets/exeventos-logo.png' : '/src/assets/mageventos-logo.jpg';
-        const companyName = isExEventos ? 'Ex Eventos' : 'Mag Eventos';
-        const companyColor = isExEventos ? '#4f46e5' : '#d4a03e';
+        const companyLogo = '/src/assets/exeventos-logo.png';
+        const companyName = 'Ex Eventos';
+        const companyColor = '#4f46e5';
 
         const htmlContent = `
             <!DOCTYPE html>
