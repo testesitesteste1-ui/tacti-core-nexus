@@ -83,8 +83,15 @@ export const InteractiveParkingMap = () => {
   // Filter parking spots by selected building
   const buildingSpots = parkingSpots.filter(spot => spot.buildingId === selectedBuilding?.id);
 
-  // Get all unique floors from parking spots
-  const availableFloors = Array.from(new Set(buildingSpots.map(spot => spot.floor)));
+  // Floor order matching registration
+  const floorOrder: ParkingSpot['floor'][] = [
+    'Piso Único', 'Térreo', '1° SubSolo', '2° SubSolo', '3° SubSolo', '4° SubSolo', '5° SubSolo',
+    'Ed. Garagem (1° Andar)', 'Ed. Garagem (2° Andar)', 'Ed. Garagem (3° Andar)', 'Ed. Garagem (4° Andar)', 'Ed. Garagem (5° Andar)'
+  ];
+
+  // Get all unique floors from parking spots, sorted by registration order
+  const availableFloors = Array.from(new Set(buildingSpots.map(spot => spot.floor)))
+    .sort((a, b) => floorOrder.indexOf(a) - floorOrder.indexOf(b));
   
   const floorsData = availableFloors.reduce((acc, floor) => {
     acc[floor] = buildingSpots.filter(spot => spot.floor === floor);
@@ -364,22 +371,33 @@ export const InteractiveParkingMap = () => {
                     <div className="flex flex-wrap gap-1">
                       {(Array.isArray(selectedSpot.type) ? selectedSpot.type : [selectedSpot.type])
                         .filter(type => {
-                          // Não mostrar "Vaga Comum" se for coberta ou descoberta
                           if ((selectedSpot.isCovered || selectedSpot.isUncovered) && type === 'Vaga Comum') {
                             return false;
                           }
                           return true;
                         })
-                        .map((type, index) => (
-                          <Badge key={index} variant={type === 'Vaga PcD' ? 'default' : 'outline'}>
-                            {type}
-                          </Badge>
-                        ))}
+                        .map((type, index) => {
+                          const variantMap: Record<string, any> = {
+                            'Vaga PcD': 'pcd',
+                            'Vaga Idoso': 'elderly',
+                            'Vaga Grande': 'large',
+                            'Vaga Pequena': 'small',
+                            'Vaga Motocicleta': 'motorcycle',
+                            'Vaga Presa': 'linked',
+                            'Vaga Livre': 'unlinked',
+                            'Vaga Comum': 'common',
+                          };
+                          return (
+                            <Badge key={index} variant={variantMap[type] || 'outline'}>
+                              {type}
+                            </Badge>
+                          );
+                        })}
                       {selectedSpot.isCovered && (
-                        <Badge variant="covered">Coberta</Badge>
+                        <Badge variant="covered">Vaga Coberta</Badge>
                       )}
                       {selectedSpot.isUncovered && (
-                        <Badge variant="uncovered">Descoberta</Badge>
+                        <Badge variant="uncovered">Vaga Descoberta</Badge>
                       )}
                     </div>
                   </div>
