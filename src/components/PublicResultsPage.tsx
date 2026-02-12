@@ -579,10 +579,10 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                                     </Badge>
                                   ))}
                                   {spot?.isCovered && (
-                                    <Badge variant="covered" className="text-[10px] px-1.5 py-0">Coberta</Badge>
+                                    <Badge variant="covered" className="text-[10px] px-1.5 py-0">Vaga Coberta</Badge>
                                   )}
                                   {spot?.isUncovered && (
-                                    <Badge variant="uncovered" className="text-[10px] px-1.5 py-0">Descoberta</Badge>
+                                    <Badge variant="uncovered" className="text-[10px] px-1.5 py-0">Vaga Descoberta</Badge>
                                   )}
                                 </div>
                               </div>
@@ -1020,10 +1020,10 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                               </Badge>
                             ))}
                             {result.spotSnapshot.isCovered && (
-                              <Badge variant="covered" className="text-[10px] px-1.5 py-0">Coberta</Badge>
+                              <Badge variant="covered" className="text-[10px] px-1.5 py-0">Vaga Coberta</Badge>
                             )}
                             {result.spotSnapshot.isUncovered && (
-                              <Badge variant="uncovered" className="text-[10px] px-1.5 py-0">Descoberta</Badge>
+                              <Badge variant="uncovered" className="text-[10px] px-1.5 py-0">Vaga Descoberta</Badge>
                             )}
                           </div>
                         </div>
