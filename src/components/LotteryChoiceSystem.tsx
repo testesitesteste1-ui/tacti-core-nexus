@@ -1677,7 +1677,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
         if (types.includes('Vaga Idoso')) badges.push({ label: 'Idoso', variant: 'elderly', icon: '👴' });
         if (types.includes('Vaga Grande')) badges.push({ label: 'Grande', variant: 'large', icon: '🚙' });
         if (types.includes('Vaga Pequena')) badges.push({ label: 'Pequena', variant: 'small', icon: '🚗' });
-        if (types.includes('Vaga Motocicleta')) badges.push({ label: 'Moto', variant: 'motorcycle', icon: '🏍️' });
+        if (types.includes('Vaga Motocicleta')) badges.push({ label: 'Motocicleta', variant: 'motorcycle', icon: '🏍️' });
         if (types.includes('Vaga Presa')) badges.push({ label: 'Presa', variant: 'linked', icon: '🔗' });
         if (types.includes('Vaga Livre')) badges.push({ label: 'Livre', variant: 'unlinked', icon: '🔓' });
         
@@ -2105,12 +2105,12 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             Vez Atual: {currentParticipant.drawOrder}º Sorteado
                             {currentParticipant.hasSpecialNeeds && <Badge variant="pcd">PcD</Badge>}
                             {currentParticipant.isElderly && <Badge variant="elderly">Idoso</Badge>}
-                            {currentParticipant.hasSmallCar && <Badge variant="small">Veíc. Peq.</Badge>}
-                            {currentParticipant.hasLargeCar && <Badge variant="large">Veíc. Gde.</Badge>}
-                            {currentParticipant.hasMotorcycle && <Badge variant="motorcycle">Moto</Badge>}
+                            {currentParticipant.hasSmallCar && <Badge variant="small">Veículo Pequeno</Badge>}
+                            {currentParticipant.hasLargeCar && <Badge variant="large">Veículo Grande</Badge>}
+                            {currentParticipant.hasMotorcycle && <Badge variant="motorcycle">Motocicleta</Badge>}
                             {currentParticipant.prefersCommonSpot && <Badge variant="common">P. Comum</Badge>}
-                            {currentParticipant.prefersCovered && <Badge variant="covered">P. Coberta</Badge>}
-                            {currentParticipant.prefersUncovered && <Badge variant="uncovered">P. Descob.</Badge>}
+                            {currentParticipant.prefersCovered && <Badge variant="covered">P. Vaga Coberta</Badge>}
+                            {currentParticipant.prefersUncovered && <Badge variant="uncovered">P. Vaga Descoberta</Badge>}
                             {currentParticipant.prefersLinkedSpot && <Badge variant="linked">P. Presa</Badge>}
                             {currentParticipant.prefersUnlinkedSpot && <Badge variant="unlinked">P. Livre</Badge>}
                         </CardTitle>
@@ -2311,12 +2311,12 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                         Unidade {participant.unit}
                                                         {participant.hasSpecialNeeds && <Badge variant="pcd" className="text-xs">PcD</Badge>}
                                                         {participant.isElderly && <Badge variant="elderly" className="text-xs">Idoso</Badge>}
-                                                        {participant.hasSmallCar && <Badge variant="small" className="text-xs">Veíc. Peq.</Badge>}
-                                                        {participant.hasLargeCar && <Badge variant="large" className="text-xs">Veíc. Gde.</Badge>}
-                                                        {participant.hasMotorcycle && <Badge variant="motorcycle" className="text-xs">Moto</Badge>}
+                                                        {participant.hasSmallCar && <Badge variant="small" className="text-xs">Veículo Pequeno</Badge>}
+                                                        {participant.hasLargeCar && <Badge variant="large" className="text-xs">Veículo Grande</Badge>}
+                                                        {participant.hasMotorcycle && <Badge variant="motorcycle" className="text-xs">Motocicleta</Badge>}
                                                         {participant.prefersCommonSpot && <Badge variant="common" className="text-xs">Pref. Vaga Comum</Badge>}
-                                                        {participant.prefersCovered && <Badge variant="covered" className="text-xs">Pref. Coberta</Badge>}
-                                                        {participant.prefersUncovered && <Badge variant="uncovered" className="text-xs">Pref. Descoberta</Badge>}
+                                                        {participant.prefersCovered && <Badge variant="covered" className="text-xs">Pref. Vaga Coberta</Badge>}
+                                                        {participant.prefersUncovered && <Badge variant="uncovered" className="text-xs">Pref. Vaga Descoberta</Badge>}
                                                         {participant.prefersLinkedSpot && <Badge variant="linked" className="text-xs">Pref. Presa</Badge>}
                                                         {participant.prefersUnlinkedSpot && <Badge variant="unlinked" className="text-xs">Pref. Livre</Badge>}
                                                         {participant.prefersSmallSpot && <Badge variant="small" className="text-xs">Pref. Pequena</Badge>}
