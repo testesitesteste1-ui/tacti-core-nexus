@@ -148,7 +148,7 @@ const navigationItems = [
   { id: "participants", label: "Participantes/Unidades", icon: Users },
   { id: "parking", label: "Vagas", icon: Car },
   { id: "map", label: "Planta Digital", icon: Map },
-  { id: "lottery", label: "Sorteio", icon: Settings },
+  { id: "lottery", label: "Sorteio Geral", icon: Settings },
   { id: "choice-lottery", label: "Sorteio por Escolha", icon: Shuffle }, // ✅ ADICIONE ESTA LINHA
   { id: "sector-lottery", label: "Sorteio por Setor", icon: MapPin },
   { id: "history", label: "Histórico", icon: BarChart3 },
