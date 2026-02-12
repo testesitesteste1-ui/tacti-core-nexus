@@ -1682,20 +1682,21 @@ export default function LotteryChoiceSystem(): JSX.Element {
         if (types.includes('Vaga Livre')) badges.push({ label: 'Livre', variant: 'unlinked', icon: '🔓' });
         
         // Cobertura
+        const hasCoverage = spot.isCovered || types.includes('Vaga Coberta') || spot.isUncovered || types.includes('Vaga Descoberta');
         if (spot.isCovered || types.includes('Vaga Coberta')) {
-            badges.push({ label: 'Coberta', variant: 'covered', icon: '🏠' });
+            badges.push({ label: 'Vaga Coberta', variant: 'covered', icon: '🏠' });
         }
         if (spot.isUncovered || types.includes('Vaga Descoberta')) {
-            badges.push({ label: 'Descoberta', variant: 'uncovered', icon: '☀️' });
+            badges.push({ label: 'Vaga Descoberta', variant: 'uncovered', icon: '☀️' });
         }
 
-        // Vaga Comum - mostrar apenas se não tem outros tipos específicos
+        // Vaga Comum - mostrar apenas se não tem cobertura nem outros tipos específicos
         const hasSpecificType = types.some(t => 
             t !== 'Vaga Comum' && 
             t !== 'Vaga Coberta' && 
             t !== 'Vaga Descoberta'
         );
-        if (types.includes('Vaga Comum') && !hasSpecificType) {
+        if (types.includes('Vaga Comum') && !hasSpecificType && !hasCoverage) {
             badges.push({ label: 'Comum', variant: 'common', icon: '🅿️' });
         }
 
@@ -2753,7 +2754,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                 <CardHeader className="pb-3">
                                                     <CardTitle className="text-2xl flex items-center gap-2">
                                                         <ParkingSquare className="h-7 w-7" />
-                                                        Vaga {spot.number}
+                                                        Vagas {spot.number}
                                                     </CardTitle>
                                                     <CardDescription className="text-lg font-medium">{spot.floor}</CardDescription>
                                                 </CardHeader>
