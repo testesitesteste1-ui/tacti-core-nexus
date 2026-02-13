@@ -7,7 +7,7 @@ const firebaseConfig = {
   authDomain: "sorteio-vagas.firebaseapp.com",
   databaseURL: "https://sorteio-vagas-default-rtdb.firebaseio.com",
   projectId: "sorteio-vagas",
-  storageBucket: "sorteio-vagas.firebasestorage.app",
+  
   messagingSenderId: "357693024565",
   appId: "1:357693024565:web:fe9b7f21eba8c0ccca047c"
 };
