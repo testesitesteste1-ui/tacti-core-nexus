@@ -5,18 +5,23 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { Building, Upload, Save, Trash2, Move, ZoomIn, ZoomOut, RotateCcw, Eye, Edit3, MapPin, Car, Info, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Building, Upload, Save, Trash2, Move, ZoomIn, ZoomOut, RotateCcw, Eye, Edit3, MapPin, Car, Info, Image as ImageIcon, Loader2, GripVertical, CheckCircle2, Circle, Search } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { ParkingSpot } from '@/types/lottery';
 import { cn } from '@/lib/utils';
 import { database } from '@/config/firebase';
 import { ref as dbRef, set, onValue } from 'firebase/database';
 import { toast } from 'sonner';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface FloorPlanData {
   imageUrl: string;
-  markers: Record<string, { x: number; y: number }>; // spotId -> position (% based)
+  markers: Record<string, { x: number; y: number }>;
 }
 
 interface MarkerProps {
@@ -24,49 +29,70 @@ interface MarkerProps {
   position: { x: number; y: number };
   isEditing: boolean;
   isDragging: boolean;
+  isHighlighted: boolean;
   onDragStart: (spotId: string, e: React.PointerEvent) => void;
+  onRemove?: (spotId: string) => void;
   status?: 'available' | 'occupied' | 'reserved' | 'chosen';
 }
 
-const SpotMarker: React.FC<MarkerProps> = ({ spot, position, isEditing, isDragging, onDragStart, status }) => {
+const SpotMarker: React.FC<MarkerProps> = ({ spot, position, isEditing, isDragging, isHighlighted, onDragStart, onRemove, status }) => {
   const spotStatus = status || spot.status;
 
   const getColor = () => {
     switch (spotStatus) {
-      case 'chosen': return 'bg-red-500 border-red-700 text-white';
-      case 'occupied': return 'bg-orange-500 border-orange-700 text-white';
-      case 'reserved': return 'bg-yellow-500 border-yellow-700 text-white';
+      case 'chosen': return 'bg-red-500 border-red-700 text-white shadow-red-500/40';
+      case 'occupied': return 'bg-orange-500 border-orange-700 text-white shadow-orange-500/40';
+      case 'reserved': return 'bg-yellow-500 border-yellow-700 text-white shadow-yellow-500/40';
       case 'available':
-      default: return 'bg-green-500 border-green-700 text-white';
+      default: return 'bg-green-500 border-green-700 text-white shadow-green-500/40';
     }
   };
 
+  const types = Array.isArray(spot.type) ? spot.type : [spot.type];
+
   return (
-    <div
-      className={cn(
-        'absolute flex items-center justify-center rounded-full border-2 shadow-lg transition-transform select-none',
-        'w-8 h-8 text-[10px] font-bold',
-        'md:w-10 md:h-10 md:text-xs',
-        getColor(),
-        isEditing && 'cursor-grab hover:scale-110',
-        isDragging && 'cursor-grabbing scale-125 z-50 opacity-80',
-        !isEditing && 'pointer-events-none'
-      )}
-      style={{
-        left: `${position.x}%`,
-        top: `${position.y}%`,
-        transform: 'translate(-50%, -50%)',
-      }}
-      onPointerDown={(e) => {
-        if (isEditing) {
-          e.preventDefault();
-          onDragStart(spot.id, e);
-        }
-      }}
-      title={`Vaga ${spot.number} - ${spot.floor}`}
-    >
-      {spot.number}
-    </div>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={cn(
+              'absolute flex items-center justify-center rounded-full border-2 shadow-lg transition-all select-none',
+              'w-7 h-7 text-[9px] font-bold',
+              'md:w-9 md:h-9 md:text-[11px]',
+              getColor(),
+              isEditing && 'cursor-grab hover:scale-110 hover:shadow-xl',
+              isDragging && 'cursor-grabbing scale-[1.35] z-50 opacity-90 ring-2 ring-white/60',
+              isHighlighted && 'ring-2 ring-primary ring-offset-1 scale-110 z-40',
+              !isEditing && 'pointer-events-none'
+            )}
+            style={{
+              left: `${position.x}%`,
+              top: `${position.y}%`,
+              transform: 'translate(-50%, -50%)',
+            }}
+            onPointerDown={(e) => {
+              if (isEditing) {
+                e.preventDefault();
+                onDragStart(spot.id, e);
+              }
+            }}
+            onDoubleClick={() => {
+              if (isEditing && onRemove) {
+                onRemove(spot.id);
+              }
+            }}
+          >
+            {spot.number}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <div className="font-semibold">Vaga {spot.number}</div>
+          <div className="text-muted-foreground">{types.join(', ')}</div>
+          {spot.isCovered && <div>Coberta</div>}
+          {isEditing && <div className="text-muted-foreground mt-1 italic">Duplo-clique para remover</div>}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
 
@@ -90,6 +116,8 @@ export const FloorPlanEditor: React.FC = () => {
   const [draggingSpotId, setDraggingSpotId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [unplacedFilter, setUnplacedFilter] = useState('');
+  const [highlightedSpotId, setHighlightedSpotId] = useState<string | null>(null);
+  const [placedFilter, setPlacedFilter] = useState('');
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -105,7 +133,6 @@ export const FloorPlanEditor: React.FC = () => {
   // Load floor plans from Firebase
   useEffect(() => {
     if (!selectedBuilding?.id) return;
-
     const plansRef = dbRef(database, `buildings/${selectedBuilding.id}/floorPlans`);
     const unsub = onValue(plansRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -114,11 +141,9 @@ export const FloorPlanEditor: React.FC = () => {
         setFloorPlans({});
       }
     });
-
     return () => unsub();
   }, [selectedBuilding?.id]);
 
-  // Update selectedFloor when availableFloors changes
   useEffect(() => {
     if (availableFloors.length > 0 && !availableFloors.includes(selectedFloor as any)) {
       setSelectedFloor(availableFloors[0]);
@@ -134,7 +159,6 @@ export const FloorPlanEditor: React.FC = () => {
       return;
     }
 
-    // Limit file size to 5MB for Realtime Database
     if (file.size > 5 * 1024 * 1024) {
       toast.error('Arquivo muito grande. Máximo 5MB.');
       return;
@@ -142,7 +166,6 @@ export const FloorPlanEditor: React.FC = () => {
 
     setUploading(true);
     try {
-      // Convert to base64 data URL
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -168,6 +191,7 @@ export const FloorPlanEditor: React.FC = () => {
 
   const handleDragStart = useCallback((spotId: string, e: React.PointerEvent) => {
     setDraggingSpotId(spotId);
+    setHighlightedSpotId(spotId);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }, []);
 
@@ -203,7 +227,6 @@ export const FloorPlanEditor: React.FC = () => {
       return;
     }
 
-    // Place at center
     setFloorPlans(prev => ({
       ...prev,
       [selectedFloor]: {
@@ -214,10 +237,12 @@ export const FloorPlanEditor: React.FC = () => {
         },
       },
     }));
-    toast.success(`Vaga ${spot.number} adicionada ao mapa. Arraste para posicionar.`);
+    setHighlightedSpotId(spot.id);
+    toast.success(`Vaga ${spot.number} adicionada. Arraste para posicionar.`);
   };
 
   const handleRemoveMarker = (spotId: string) => {
+    const spot = buildingSpots.find(s => s.id === spotId);
     setFloorPlans(prev => {
       const updated = { ...prev };
       if (updated[selectedFloor]?.markers) {
@@ -227,6 +252,8 @@ export const FloorPlanEditor: React.FC = () => {
       }
       return updated;
     });
+    if (highlightedSpotId === spotId) setHighlightedSpotId(null);
+    if (spot) toast.info(`Vaga ${spot.number} removida do mapa`);
   };
 
   const handlePlaceAll = () => {
@@ -235,7 +262,7 @@ export const FloorPlanEditor: React.FC = () => {
       return;
     }
 
-    const newMarkers = { ...currentPlan.markers };
+    const newMarkers = { ...(currentPlan.markers ?? {}) };
     const cols = Math.ceil(Math.sqrt(unplacedSpots.length));
     unplacedSpots.forEach((spot, i) => {
       const row = Math.floor(i / cols);
@@ -282,6 +309,12 @@ export const FloorPlanEditor: React.FC = () => {
     }
   };
 
+  const placedSpotsFiltered = placedSpotIds
+    .map(id => buildingSpots.find(s => s.id === id))
+    .filter((s): s is ParkingSpot => !!s)
+    .filter(s => !placedFilter || s.number.toLowerCase().includes(placedFilter.toLowerCase()))
+    .sort((a, b) => a.number.localeCompare(b.number, 'pt-BR', { numeric: true }));
+
   if (!selectedBuilding) {
     return (
       <div className="p-6 flex items-center justify-center">
@@ -295,8 +328,12 @@ export const FloorPlanEditor: React.FC = () => {
     );
   }
 
+  const totalPlaced = placedSpotIds.length;
+  const totalSpots = floorSpots.length;
+  const progressPercent = totalSpots > 0 ? Math.round((totalPlaced / totalSpots) * 100) : 0;
+
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-6 space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
@@ -323,7 +360,7 @@ export const FloorPlanEditor: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
         {/* Main Map Area */}
         <div className="lg:col-span-3 space-y-4">
           {/* Floor Selector + Upload */}
@@ -381,19 +418,38 @@ export const FloorPlanEditor: React.FC = () => {
                 )}
               </div>
 
-              {/* Zoom Controls */}
+              {/* Zoom Controls + Progress */}
               {currentPlan?.imageUrl && (
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}>
-                    <ZoomOut className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm text-muted-foreground w-16 text-center">{Math.round(zoom * 100)}%</span>
-                  <Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.min(3, z + 0.1))}>
-                    <ZoomIn className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setZoom(1)}>
-                    <RotateCcw className="h-4 w-4" />
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}>
+                      <ZoomOut className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm text-muted-foreground w-14 text-center font-mono">{Math.round(zoom * 100)}%</span>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.min(3, z + 0.1))}>
+                      <ZoomIn className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(1)}>
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {isEditing && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            progressPercent === 100 ? "bg-green-500" : "bg-primary"
+                          )}
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                      <span className="text-muted-foreground font-medium">
+                        {totalPlaced}/{totalSpots}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -403,10 +459,13 @@ export const FloorPlanEditor: React.FC = () => {
           <Card className="shadow-soft overflow-hidden">
             <CardContent className="p-0">
               {currentPlan?.imageUrl ? (
-                <div className="overflow-auto max-h-[70vh]">
+                <div className="overflow-auto max-h-[70vh] bg-muted/30">
                   <div
                     ref={mapContainerRef}
-                    className="relative select-none"
+                    className={cn(
+                      "relative select-none",
+                      isEditing && "ring-2 ring-primary/20 ring-inset"
+                    )}
                     style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', minHeight: 400 }}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
@@ -429,15 +488,19 @@ export const FloorPlanEditor: React.FC = () => {
                           position={pos}
                           isEditing={isEditing}
                           isDragging={draggingSpotId === spotId}
+                          isHighlighted={highlightedSpotId === spotId}
                           onDragStart={handleDragStart}
+                          onRemove={handleRemoveMarker}
                         />
                       );
                     })}
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <ImageIcon className="h-16 w-16 text-muted-foreground/40 mb-4" />
+                <div className="flex flex-col items-center justify-center py-20 text-center bg-muted/20">
+                  <div className="w-20 h-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+                    <ImageIcon className="h-10 w-10 text-muted-foreground/50" />
+                  </div>
                   <h3 className="text-lg font-medium text-foreground mb-2">Nenhuma planta carregada</h3>
                   <p className="text-sm text-muted-foreground mb-4 max-w-md">
                     Ative o modo "Editar" e faça upload da imagem da planta do pavimento <strong>{selectedFloor}</strong>
@@ -477,56 +540,83 @@ export const FloorPlanEditor: React.FC = () => {
               <span>Escolhida (Sorteio)</span>
             </div>
           </div>
+
+          {/* Tips bar in edit mode */}
+          {isEditing && currentPlan?.imageUrl && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-sm text-muted-foreground flex items-start gap-2">
+              <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div>
+                <strong className="text-foreground">Dicas:</strong> Clique em uma vaga da lista para adicioná-la ao centro do mapa. 
+                Arraste os marcadores para posicionar. <strong>Duplo-clique</strong> em um marcador para removê-lo.
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Sidebar - Spot List */}
+        {/* Sidebar */}
         <div className="space-y-4">
           {isEditing && currentPlan?.imageUrl && (
-            <Card className="shadow-soft">
+            <Card className="shadow-soft border-primary/20">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Car className="h-4 w-4" />
+                  <Car className="h-4 w-4 text-primary" />
                   Vagas Não Posicionadas
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Clique para adicionar ao mapa e arraste para posicionar
+                  Clique para adicionar ao mapa
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Input
-                  placeholder="Filtrar por número..."
-                  value={unplacedFilter}
-                  onChange={(e) => setUnplacedFilter(e.target.value)}
-                  className="h-8 text-sm"
-                />
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Filtrar por número..."
+                    value={unplacedFilter}
+                    onChange={(e) => setUnplacedFilter(e.target.value)}
+                    className="h-8 text-sm pl-8"
+                  />
+                </div>
 
                 {unplacedSpots.length > 0 && (
-                  <Button variant="outline" size="sm" className="w-full gap-2" onClick={handlePlaceAll}>
+                  <Button variant="outline" size="sm" className="w-full gap-2 border-dashed" onClick={handlePlaceAll}>
                     <Move className="h-3 w-3" />
                     Posicionar Todas ({unplacedSpots.length})
                   </Button>
                 )}
 
-                <div className="max-h-[40vh] overflow-y-auto space-y-1.5">
+                <div className="max-h-[35vh] overflow-y-auto space-y-1">
                   {filteredUnplaced.length > 0 ? (
                     filteredUnplaced
                       .sort((a, b) => a.number.localeCompare(b.number, 'pt-BR', { numeric: true }))
-                      .map(spot => (
-                        <button
-                          key={spot.id}
-                          onClick={() => handlePlaceSpot(spot)}
-                          className="w-full text-left p-2 rounded-lg border hover:bg-accent transition-colors text-sm flex items-center justify-between"
-                        >
-                          <span className="font-medium">#{spot.number}</span>
-                          <Badge variant="outline" className="text-[10px]">
-                            {(Array.isArray(spot.type) ? spot.type : [spot.type])[0]}
-                          </Badge>
-                        </button>
-                      ))
+                      .map(spot => {
+                        const types = Array.isArray(spot.type) ? spot.type : [spot.type];
+                        return (
+                          <button
+                            key={spot.id}
+                            onClick={() => handlePlaceSpot(spot)}
+                            className="w-full text-left p-2 rounded-lg border border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/5 transition-all text-sm flex items-center justify-between group"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Circle className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                              <span className="font-medium">#{spot.number}</span>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] font-normal">
+                              {types[0]}
+                            </Badge>
+                          </button>
+                        );
+                      })
                   ) : (
-                    <p className="text-xs text-muted-foreground text-center py-4">
-                      {unplacedSpots.length === 0 ? '✅ Todas as vagas posicionadas!' : 'Nenhuma vaga encontrada'}
-                    </p>
+                    <div className="text-center py-6">
+                      {unplacedSpots.length === 0 ? (
+                        <div className="space-y-1">
+                          <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto" />
+                          <p className="text-xs text-green-600 font-medium">Todas posicionadas!</p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Nenhuma vaga encontrada</p>
+                      )}
+                    </div>
                   )}
                 </div>
               </CardContent>
@@ -536,25 +626,57 @@ export const FloorPlanEditor: React.FC = () => {
           {isEditing && currentPlan?.imageUrl && placedSpotIds.length > 0 && (
             <Card className="shadow-soft">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Vagas no Mapa</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-green-600" />
+                  Vagas no Mapa
+                </CardTitle>
                 <CardDescription className="text-xs">
-                  {placedSpotIds.length} vaga(s) posicionada(s)
+                  {placedSpotIds.length} posicionada(s) • Clique para destacar
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="max-h-[30vh] overflow-y-auto space-y-1">
-                  {placedSpotIds.map(spotId => {
-                    const spot = buildingSpots.find(s => s.id === spotId);
-                    if (!spot) return null;
-                    return (
-                      <div key={spotId} className="flex items-center justify-between p-1.5 rounded hover:bg-muted text-sm">
+              <CardContent className="space-y-2">
+                {placedSpotIds.length > 6 && (
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar..."
+                      value={placedFilter}
+                      onChange={(e) => setPlacedFilter(e.target.value)}
+                      className="h-7 text-xs pl-8"
+                    />
+                  </div>
+                )}
+                <div className="max-h-[30vh] overflow-y-auto space-y-0.5">
+                  {placedSpotsFiltered.map(spot => (
+                    <div
+                      key={spot.id}
+                      className={cn(
+                        "flex items-center justify-between p-1.5 rounded-md text-sm cursor-pointer transition-colors",
+                        highlightedSpotId === spot.id
+                          ? "bg-primary/10 ring-1 ring-primary/30"
+                          : "hover:bg-muted"
+                      )}
+                      onClick={() => setHighlightedSpotId(
+                        highlightedSpotId === spot.id ? null : spot.id
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
                         <span className="font-medium">#{spot.number}</span>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveMarker(spotId)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
                       </div>
-                    );
-                  })}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-50 hover:opacity-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveMarker(spot.id);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
