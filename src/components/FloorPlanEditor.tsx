@@ -96,7 +96,7 @@ export const FloorPlanEditor: React.FC = () => {
 
   const currentPlan = floorPlans[selectedFloor];
   const floorSpots = buildingSpots.filter(s => s.floor === selectedFloor);
-  const placedSpotIds = currentPlan ? Object.keys(currentPlan.markers) : [];
+  const placedSpotIds = currentPlan ? Object.keys(currentPlan.markers ?? {}) : [];
   const unplacedSpots = floorSpots.filter(s => !placedSpotIds.includes(s.id));
   const filteredUnplaced = unplacedSpots.filter(s =>
     !unplacedFilter || s.number.toLowerCase().includes(unplacedFilter.toLowerCase())
