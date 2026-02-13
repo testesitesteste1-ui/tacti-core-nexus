@@ -290,6 +290,16 @@ export const FloorPlanEditor: React.FC = () => {
     }));
     toast.success(`${unplacedSpots.length} vagas posicionadas. Arraste para ajustar.`);
   };
+  const handleResetMarkers = () => {
+    if (!currentPlan) return;
+    const count = Object.keys(currentPlan.markers ?? {}).length;
+    setFloorPlans(prev => ({
+      ...prev,
+      [selectedFloor]: { ...prev[selectedFloor], markers: {} },
+    }));
+    setHighlightedSpotId(null);
+    toast.info(`${count} marcador(es) removido(s). Posicione novamente.`);
+  };
 
   const handleSave = async () => {
     if (!selectedBuilding?.id) return;
@@ -593,12 +603,20 @@ export const FloorPlanEditor: React.FC = () => {
                   />
                 </div>
 
-                {unplacedSpots.length > 0 && (
-                  <Button variant="outline" size="sm" className="w-full gap-2 border-dashed" onClick={handlePlaceAll}>
-                    <Move className="h-3 w-3" />
-                    Posicionar Todas ({unplacedSpots.length})
-                  </Button>
-                )}
+                <div className="flex gap-2">
+                  {unplacedSpots.length > 0 && (
+                    <Button variant="outline" size="sm" className="flex-1 gap-2 border-dashed" onClick={handlePlaceAll}>
+                      <Move className="h-3 w-3" />
+                      Posicionar Todas ({unplacedSpots.length})
+                    </Button>
+                  )}
+                  {placedSpotIds.length > 0 && (
+                    <Button variant="outline" size="sm" className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={handleResetMarkers}>
+                      <RotateCcw className="h-3 w-3" />
+                      Resetar
+                    </Button>
+                  )}
+                </div>
 
                 <div className="max-h-[35vh] overflow-y-auto space-y-1">
                   {filteredUnplaced.length > 0 ? (
