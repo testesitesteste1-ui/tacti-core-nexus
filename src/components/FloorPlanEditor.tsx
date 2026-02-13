@@ -755,6 +755,17 @@ export const FloorPlanEditor: React.FC = () => {
                     {floorSpots.filter(s => s.status === 'occupied').length}
                   </span>
                 </div>
+                {placedSpotIds.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2 mt-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                    onClick={handleResetMarkers}
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Resetar Posições ({placedSpotIds.length})
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
