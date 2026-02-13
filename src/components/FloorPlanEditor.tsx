@@ -10,9 +10,8 @@ import { Building, Upload, Save, Trash2, Move, ZoomIn, ZoomOut, RotateCcw, Eye, 
 import { useAppContext } from '@/context/AppContext';
 import { ParkingSpot } from '@/types/lottery';
 import { cn } from '@/lib/utils';
-import { database, storage } from '@/config/firebase';
+import { database } from '@/config/firebase';
 import { ref as dbRef, set, onValue } from 'firebase/database';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'sonner';
 
 interface FloorPlanData {
@@ -135,23 +134,32 @@ export const FloorPlanEditor: React.FC = () => {
       return;
     }
 
+    // Limit file size to 5MB for Realtime Database
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 5MB.');
+      return;
+    }
+
     setUploading(true);
     try {
-      const path = `floorPlans/${selectedBuilding.id}/${selectedFloor.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
-      const sRef = storageRef(storage, path);
-      await uploadBytes(sRef, file);
-      const url = await getDownloadURL(sRef);
+      // Convert to base64 data URL
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
 
       const updatedPlan: FloorPlanData = {
-        imageUrl: url,
+        imageUrl: dataUrl,
         markers: currentPlan?.markers || {},
       };
 
       await set(dbRef(database, `buildings/${selectedBuilding.id}/floorPlans/${selectedFloor}`), updatedPlan);
-      toast.success('Imagem da planta enviada com sucesso!');
+      toast.success('Planta enviada com sucesso!');
     } catch (error) {
       console.error('Erro ao enviar imagem:', error);
-      toast.error('Erro ao enviar imagem. Verifique as permissões do Firebase Storage.');
+      toast.error('Erro ao enviar imagem.');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
