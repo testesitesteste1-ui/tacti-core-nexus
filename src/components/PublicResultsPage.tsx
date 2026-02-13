@@ -416,9 +416,9 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
     // ===== FULLSCREEN MAP MODE (70% map / 30% lottery) =====
     if (isMapFullscreen && buildingId) {
       return (
-        <div className="fixed inset-0 z-[100] bg-white flex">
-          {/* Map 70% */}
-          <div className="w-[70%] h-full border-r">
+        <div className="fixed inset-0 z-[100] bg-white flex flex-col md:flex-row">
+          {/* Map — full width on mobile (top half), 70% on desktop */}
+          <div className="w-full h-[45vh] md:w-[70%] md:h-full border-b md:border-b-0 md:border-r">
             <LiveFloorPlanMiniMap
               buildingId={buildingId}
               liveData={liveData}
@@ -427,38 +427,38 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
             />
           </div>
 
-          {/* Lottery sidebar 30% */}
-          <div className="w-[30%] h-full flex flex-col overflow-hidden">
+          {/* Lottery sidebar — full width on mobile (bottom half), 30% on desktop */}
+          <div className="w-full flex-1 md:w-[30%] md:h-full flex flex-col overflow-hidden">
             {/* Sidebar header */}
-            <div className={`${liveData.status === 'completed' ? 'bg-green-600' : 'bg-red-600'} text-white px-4 py-3`}>
-              <div className="flex items-center gap-2 mb-1">
+            <div className={`${liveData.status === 'completed' ? 'bg-green-600' : 'bg-red-600'} text-white px-3 py-2 md:px-4 md:py-3`}>
+              <div className="flex items-center gap-2 mb-0.5 md:mb-1">
                 <div className={`w-2 h-2 rounded-full bg-white ${liveData.status === 'in_progress' ? 'animate-pulse' : ''}`} />
-                <span className="text-xs font-bold uppercase tracking-wider">
+                <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider">
                   {liveData.status === 'completed' ? 'Concluído' : 'Ao Vivo'}
                 </span>
               </div>
-              <h2 className="font-bold text-sm">{liveData.buildingName}</h2>
-              <p className="text-xs text-white/80">{liveData.sessionName}</p>
+              <h2 className="font-bold text-xs md:text-sm truncate">{liveData.buildingName}</h2>
+              <p className="text-[10px] md:text-xs text-white/80 truncate">{liveData.sessionName}</p>
             </div>
 
             {/* Progress */}
-            <div className="px-4 py-3 border-b bg-gray-50">
-              <div className="flex items-center justify-between text-xs mb-1">
+            <div className="px-3 py-2 md:px-4 md:py-3 border-b bg-gray-50">
+              <div className="flex items-center justify-between text-[10px] md:text-xs mb-1">
                 <span className="font-medium">
                   {liveData.status === 'completed' ? 'Finalizado' : `${liveData.currentTurnIndex + 1}° turno`}
                 </span>
                 <span className="font-bold">{liveData.completedCount}/{liveData.totalParticipants}</span>
               </div>
-              <div className={`w-full ${liveData.status === 'completed' ? 'bg-green-200' : 'bg-red-200'} rounded-full h-2`}>
+              <div className={`w-full ${liveData.status === 'completed' ? 'bg-green-200' : 'bg-red-200'} rounded-full h-1.5 md:h-2`}>
                 <div
-                  className={`${liveData.status === 'completed' ? 'bg-green-500' : 'bg-red-500'} h-2 rounded-full transition-all duration-500`}
+                  className={`${liveData.status === 'completed' ? 'bg-green-500' : 'bg-red-500'} h-1.5 md:h-2 rounded-full transition-all duration-500`}
                   style={{ width: `${(liveData.completedCount / liveData.totalParticipants) * 100}%` }}
                 />
               </div>
             </div>
 
             {/* Search */}
-            <div className="px-4 py-2 border-b">
+            <div className="px-3 py-1.5 md:px-4 md:py-2 border-b">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <input
@@ -472,11 +472,11 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
             </div>
 
             {/* Participant list */}
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
+            <div className="flex-1 overflow-y-auto px-2 py-1.5 md:px-3 md:py-2 space-y-1 md:space-y-1.5">
               {filteredLiveOrder.map((participant) => (
                 <div
                   key={participant.id}
-                  className={`p-2.5 rounded-lg border text-xs transition-all ${
+                  className={`p-2 md:p-2.5 rounded-lg border text-xs transition-all ${
                     participant.status === 'choosing'
                       ? 'bg-red-50 border-red-300 ring-1 ring-red-400 animate-pulse'
                       : participant.status === 'completed'
@@ -486,9 +486,9 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                       : 'bg-gray-50 border-gray-200'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-bold text-xs w-6 h-6 rounded-full flex items-center justify-center ${
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
+                      <span className={`font-bold text-[10px] md:text-xs w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center shrink-0 ${
                         participant.status === 'choosing'
                           ? 'bg-red-500 text-white'
                           : participant.status === 'completed'
@@ -497,26 +497,26 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                       }`}>
                         {participant.drawOrder}°
                       </span>
-                      <div>
-                        <p className="font-medium text-xs">
+                      <div className="min-w-0">
+                        <p className="font-medium text-[11px] md:text-xs truncate">
                           {participant.block && `Bl. ${participant.block} - `}Un. {participant.unit}
                         </p>
                       </div>
                     </div>
-                    <div>
+                    <div className="shrink-0">
                       {participant.status === 'choosing' && (
-                        <Badge className="bg-red-500 text-white text-[10px] px-1.5 animate-pulse">Escolhendo</Badge>
+                        <Badge className="bg-red-500 text-white text-[9px] md:text-[10px] px-1 md:px-1.5 animate-pulse">Escolhendo</Badge>
                       )}
                       {participant.status === 'completed' && participant.allocatedSpots?.length > 0 && (
-                        <span className="text-green-700 font-semibold">
+                        <span className="text-green-700 font-semibold text-[10px] md:text-xs">
                           🅿️ {participant.allocatedSpots.map(s => s.number).join(', ')}
                         </span>
                       )}
                       {participant.status === 'skipped' && (
-                        <Badge variant="outline" className="border-orange-400 text-orange-600 text-[10px]">Ausente</Badge>
+                        <Badge variant="outline" className="border-orange-400 text-orange-600 text-[9px] md:text-[10px]">Ausente</Badge>
                       )}
                       {participant.status === 'waiting' && (
-                        <Badge variant="outline" className="text-gray-500 text-[10px]">Aguard.</Badge>
+                        <Badge variant="outline" className="text-gray-500 text-[9px] md:text-[10px]">Aguard.</Badge>
                       )}
                     </div>
                   </div>

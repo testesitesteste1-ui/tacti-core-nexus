@@ -152,7 +152,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
     }
 
     return (
-      <div className="fixed bottom-4 right-4 z-50 w-[320px] md:w-[380px] bg-white rounded-xl shadow-2xl border border-border overflow-hidden">
+      <div className="fixed bottom-2 right-2 left-2 md:left-auto md:bottom-4 md:right-4 z-50 w-auto md:w-[380px] bg-white rounded-xl shadow-2xl border border-border overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b">
           <div className="flex items-center gap-2">
@@ -162,12 +162,12 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
           </div>
           <div className="flex items-center gap-1">
             {onToggleFullscreen && (
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onToggleFullscreen}>
-                <Maximize2 className="h-3 w-3" />
+              <Button variant="ghost" size="icon" className="h-7 w-7 md:h-6 md:w-6" onClick={onToggleFullscreen}>
+                <Maximize2 className="h-3.5 w-3.5 md:h-3 md:w-3" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsCollapsed(true)}>
-              <Minimize2 className="h-3 w-3" />
+            <Button variant="ghost" size="icon" className="h-7 w-7 md:h-6 md:w-6" onClick={() => setIsCollapsed(true)}>
+              <Minimize2 className="h-3.5 w-3.5 md:h-3 md:w-3" />
             </Button>
           </div>
         </div>
@@ -176,7 +176,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
         {availableFloors.length > 1 && (
           <div className="px-3 py-1.5 border-b">
             <Select value={selectedFloor} onValueChange={setSelectedFloor}>
-              <SelectTrigger className="h-7 text-xs">
+              <SelectTrigger className="h-8 md:h-7 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -190,7 +190,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
 
         {/* Map */}
         {currentPlan?.imageUrl ? (
-          <div className="overflow-hidden max-h-[240px]">
+          <div className="overflow-hidden max-h-[200px] md:max-h-[240px]">
             <div className="relative select-none">
               <img
                 src={currentPlan.imageUrl}
@@ -207,7 +207,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                     key={spotId}
                     className={cn(
                       'absolute flex items-center justify-center rounded-full border text-white font-bold',
-                      'w-4 h-4 text-[6px]',
+                      'w-3.5 h-3.5 text-[5px] md:w-4 md:h-4 md:text-[6px]',
                       getMarkerColor(status),
                     )}
                     style={{
