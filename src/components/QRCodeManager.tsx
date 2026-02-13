@@ -158,12 +158,24 @@ export const QRCodeManager: React.FC<QRCodeManagerProps> = ({ buildingId, buildi
           </div>
 
           <div className="flex gap-2 w-full">
-            <Button onClick={copyLink} className="flex-1" variant="outline">
+            <Button onClick={copyLink} className="flex-1" variant="outline" size="sm">
               <Copy className="mr-2 h-4 w-4" /> Copiar Link
             </Button>
-            <Button onClick={openPublic} className="flex-1">
-              <ExternalLink className="mr-2 h-4 w-4" /> Abrir
-            </Button>
+          </div>
+
+          <div className="w-full">
+            <div className="text-xs text-muted-foreground mb-2 text-center font-medium">Abrir visualização</div>
+            <div className="flex gap-2 w-full">
+              <Button onClick={() => window.open(`${publicUrl}?view=sorteio`, '_blank', 'noopener')} className="flex-1" size="sm">
+                Sorteio
+              </Button>
+              <Button onClick={() => window.open(`${publicUrl}?view=planta`, '_blank', 'noopener')} className="flex-1" size="sm">
+                Planta
+              </Button>
+              <Button onClick={() => window.open(`${publicUrl}?view=ambos`, '_blank', 'noopener')} className="flex-1" size="sm">
+                Sorteio/Planta
+              </Button>
+            </div>
           </div>
 
           <div className="flex gap-2 w-full">
