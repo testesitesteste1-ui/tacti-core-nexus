@@ -105,10 +105,7 @@ export const FloorPlanEditor: React.FC = () => {
     'Ed. Garagem (1° Andar)', 'Ed. Garagem (2° Andar)', 'Ed. Garagem (3° Andar)', 'Ed. Garagem (4° Andar)', 'Ed. Garagem (5° Andar)'
   ];
 
-  const availableFloors = Array.from(new Set(buildingSpots.map(s => s.floor)))
-    .sort((a, b) => floorOrder.indexOf(a) - floorOrder.indexOf(b));
-
-  const [selectedFloor, setSelectedFloor] = useState<string>(availableFloors[0] || '');
+  const [selectedFloor, setSelectedFloor] = useState<string>(buildingSpots[0]?.floor || 'Térreo');
   const [floorPlans, setFloorPlans] = useState<Record<string, FloorPlanData>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -118,6 +115,20 @@ export const FloorPlanEditor: React.FC = () => {
   const [unplacedFilter, setUnplacedFilter] = useState('');
   const [highlightedSpotId, setHighlightedSpotId] = useState<string | null>(null);
   const [placedFilter, setPlacedFilter] = useState('');
+
+  // Floors that have spots assigned
+  const floorsWithSpots: string[] = Array.from(new Set(buildingSpots.map(s => s.floor)));
+  // Floors that have a plan uploaded already
+  const floorsWithPlans = Object.keys(floorPlans);
+  // In editing mode, show ALL possible floors; otherwise only show floors with spots or plans
+  const availableFloors = (isEditing
+    ? Array.from(new Set([...floorOrder, ...floorsWithSpots, ...floorsWithPlans]))
+    : Array.from(new Set([...floorsWithSpots, ...floorsWithPlans]))
+  ).sort((a, b) => {
+    const ia = floorOrder.indexOf(a as any);
+    const ib = floorOrder.indexOf(b as any);
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+  });
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -374,12 +385,17 @@ export const FloorPlanEditor: React.FC = () => {
                       <SelectValue placeholder="Selecione o pavimento" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableFloors.map(floor => (
-                        <SelectItem key={floor} value={floor}>
-                          {floor}
-                          {floorPlans[floor]?.imageUrl && ' ✅'}
-                        </SelectItem>
-                      ))}
+                      {availableFloors.map(floor => {
+                        const hasImage = !!floorPlans[floor]?.imageUrl;
+                        const hasSpots = floorsWithSpots.includes(floor);
+                        return (
+                          <SelectItem key={floor} value={floor}>
+                            {floor}
+                            {hasImage && ' ✅'}
+                            {!hasImage && hasSpots && ' 📋'}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
