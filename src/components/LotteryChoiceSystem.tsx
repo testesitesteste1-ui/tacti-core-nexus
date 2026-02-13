@@ -1388,12 +1388,20 @@ export default function LotteryChoiceSystem(): JSX.Element {
                         font-size: 11px;
                         font-weight: 600;
                         text-transform: uppercase;
-                        margin-left: 5px;
+                        margin: 2px 3px 2px 0;
                     }
                     .priority.pcd { background: #9333ea; color: white; }
                     .priority.elderly { background: #38bdf8; color: white; }
-                    .priority.delinquent { background: #dc2626; color: white; }
                     .priority.normal { background: #16a34a; color: white; }
+                    .priority.large { background: #111827; color: white; }
+                    .priority.small { background: #eab308; color: white; }
+                    .priority.motorcycle { background: #92400e; color: white; }
+                    .priority.covered { background: #2563eb; color: white; }
+                    .priority.uncovered { background: #f97316; color: white; }
+                    .priority.linked { background: #c026d3; color: white; }
+                    .priority.unlinked { background: #22c55e; color: white; }
+                    .priority.common { background: #64748b; color: white; }
+                    .priority.small-spot { background: #eab308; color: white; }
                     .footer {
                         text-align: center;
                         font-size: 12px;
@@ -1442,15 +1450,26 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     <tbody>
                         ${drawnOrder.map((participant, index) => {
                             // ✅ Determinar prioridade visual - Inadimplente é OCULTO (mostrado como Normal)
-                            let priorityBadge = '';
+                            let badges = [];
                             if (participant.hasSpecialNeeds) {
-                                priorityBadge = '<span class="priority pcd">PcD</span>';
+                                badges.push('<span class="priority pcd">PcD</span>');
                             } else if (participant.isElderly) {
-                                priorityBadge = '<span class="priority elderly">Idoso</span>';
+                                badges.push('<span class="priority elderly">Idoso</span>');
                             } else {
-                                // Normal ou Inadimplente (isUpToDate === false) - ambos aparecem como "Normal"
-                                priorityBadge = '<span class="priority normal">Normal</span>';
+                                badges.push('<span class="priority normal">Normal</span>');
                             }
+                            // Veículos
+                            if (participant.hasLargeCar) badges.push('<span class="priority large">Veículo Grande</span>');
+                            if (participant.hasSmallCar) badges.push('<span class="priority small">Veículo Pequeno</span>');
+                            if (participant.hasMotorcycle) badges.push('<span class="priority motorcycle">Motocicleta</span>');
+                            // Preferências
+                            if (participant.prefersCommonSpot) badges.push('<span class="priority common">Pref. Vaga Comum</span>');
+                            if (participant.prefersCovered) badges.push('<span class="priority covered">Pref. Vaga Coberta</span>');
+                            if (participant.prefersUncovered) badges.push('<span class="priority uncovered">Pref. Vaga Descoberta</span>');
+                            if (participant.prefersLinkedSpot) badges.push('<span class="priority linked">Pref. Vaga Presa</span>');
+                            if (participant.prefersUnlinkedSpot) badges.push('<span class="priority unlinked">Pref. Vaga Livre</span>');
+                            if (participant.prefersSmallSpot) badges.push('<span class="priority small-spot">Pref. Vaga Pequena</span>');
+                            const priorityBadge = badges.join('');
                             
                             return `
                                 <tr>
