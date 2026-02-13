@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { fetchPublicResults, PublicLotteryData, formatLotteryDate, ChoiceLotteryLiveData } from '@/utils/publicResults';
 import { FloorPlanViewer } from '@/components/FloorPlanViewer';
 import { LiveFloorPlanMiniMap } from '@/components/LiveFloorPlanMiniMap';
@@ -39,6 +40,9 @@ type ParticipantFilter = 'all' | 'special-needs' | 'elderly' | 'others';
 type SpotTypeFilter = 'all' | 'pcd' | 'idoso' | 'others';
 
 export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
+  const [searchParams] = useSearchParams();
+  const viewMode = (searchParams.get('view') || 'ambos') as 'sorteio' | 'planta' | 'ambos';
+  
   const [data, setData] = useState<PublicLotteryData | null>(null);
   const [liveData, setLiveData] = useState<ChoiceLotteryLiveData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -413,8 +417,22 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
   // 📡 MOSTRAR SORTEIO AO VIVO (quando em andamento OU recém completado)
   if (liveData && (liveData.status === 'in_progress' || liveData.status === 'completed')) {
 
-    // ===== FULLSCREEN MAP MODE (70% map / 30% lottery) =====
-    if (isMapFullscreen && buildingId) {
+    // ===== VIEW MODE: PLANTA ONLY =====
+    if (viewMode === 'planta' && buildingId) {
+      return (
+        <div className="fixed inset-0 z-[100] bg-white">
+          <LiveFloorPlanMiniMap
+            buildingId={buildingId}
+            liveData={liveData}
+            isFullscreen={true}
+            onToggleFullscreen={() => {}}
+          />
+        </div>
+      );
+    }
+
+    // ===== VIEW MODE: AMBOS (FULLSCREEN MAP + LOTTERY SIDEBAR) =====
+    if (viewMode === 'ambos' && isMapFullscreen && buildingId) {
       return (
         <div className="fixed inset-0 z-[100] bg-white flex flex-col md:flex-row">
           {/* Map — full width on mobile (top half), 70% on desktop */}
@@ -748,13 +766,13 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
           </Card>
 
           {/* Planta Visual em Tempo Real (full card) */}
-          {buildingId && (
+          {buildingId && viewMode !== 'sorteio' && (
             <FloorPlanViewer buildingId={buildingId} liveData={liveData} />
           )}
         </div>
 
         {/* Floating Mini Map (PiP) */}
-        {buildingId && (
+        {buildingId && viewMode !== 'sorteio' && (
           <LiveFloorPlanMiniMap
             buildingId={buildingId}
             liveData={liveData}
