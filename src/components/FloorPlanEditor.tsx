@@ -712,6 +712,15 @@ export const FloorPlanEditor: React.FC = () => {
                     </div>
                   ))}
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2 text-destructive border-destructive/30 hover:bg-destructive/10 mt-2"
+                  onClick={handleResetMarkers}
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Resetar Todas as Posições
+                </Button>
               </CardContent>
             </Card>
           )}
