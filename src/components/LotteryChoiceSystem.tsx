@@ -456,66 +456,101 @@ export default function LotteryChoiceSystem(): JSX.Element {
             setPendingSpot(null);
             // NÃO fechar o dialog - manter isSelectingSpot = true
         } else {
-            // Completou - marcar como completo e avançar
-            updatedParticipant.status = 'completed';
+            // Completou suas vagas - verificar se tem parceiro pendente
+            const hasPartnerPending = currentParticipant.groupId 
+                ? drawnOrder.some(p => 
+                    p.id !== currentParticipant.id && 
+                    p.groupId === currentParticipant.groupId &&
+                    p.status !== 'completed' &&
+                    p.allocatedSpots.length < (p.numberOfSpots || 1)
+                )
+                : false;
 
-            const updatedOrder = [...drawnOrder];
-            updatedOrder[currentTurnIndex] = updatedParticipant;
+            if (hasPartnerPending) {
+                // Parceiro ainda precisa de vagas - NÃO avançar turno, manter como 'choosing'
+                const updatedOrder = [...drawnOrder];
+                updatedOrder[currentTurnIndex] = updatedParticipant;
+                setDrawnOrder(updatedOrder);
 
-            // Encontrar próximo participante que não seja skipped/completed
-            let nextIndex = currentTurnIndex + 1;
-            while (nextIndex < updatedOrder.length && 
-                   (updatedOrder[nextIndex].status === 'completed' || updatedOrder[nextIndex].status === 'skipped')) {
-                nextIndex++;
-            }
+                // 📡 ATUALIZAR EM TEMPO REAL
+                if (selectedBuilding?.id) {
+                    saveChoiceLotteryLive(
+                        selectedBuilding.id,
+                        selectedBuilding.name || 'Condomínio',
+                        'Sorteio de Escolha',
+                        updatedOrder,
+                        currentTurnIndex,
+                        'in_progress',
+                        selectedBuilding.company
+                    );
+                }
 
-            if (nextIndex < updatedOrder.length) {
-                updatedOrder[nextIndex].status = 'choosing';
-                setCurrentTurnIndex(nextIndex);
-            }
+                toast({
+                    title: `Vagas da unidade concluídas! 👥`,
+                    description: `Agora escolha a(s) vaga(s) do parceiro.`,
+                });
 
-            setDrawnOrder(updatedOrder);
+                setPendingSpot(null);
+                setIsSelectingSpot(false);
+            } else {
+                // Sem parceiro pendente - marcar como completo e avançar
+                updatedParticipant.status = 'completed';
 
-            // 📡 ATUALIZAR EM TEMPO REAL
-            if (selectedBuilding?.id) {
-                // Não marcar como 'completed' se ainda há ausentes sem vagas - deixar o dialog decidir
-                const hasAbsentWithoutSpots = updatedOrder.some(
-                    (p: DrawnParticipant) => p.status === 'skipped' && p.allocatedSpots.length === 0
-                );
-                const allDoneCheck = updatedOrder.every((p: DrawnParticipant) => 
+                const updatedOrder = [...drawnOrder];
+                updatedOrder[currentTurnIndex] = updatedParticipant;
+
+                // Encontrar próximo participante que não seja skipped/completed
+                let nextIndex = currentTurnIndex + 1;
+                while (nextIndex < updatedOrder.length && 
+                       (updatedOrder[nextIndex].status === 'completed' || updatedOrder[nextIndex].status === 'skipped')) {
+                    nextIndex++;
+                }
+
+                if (nextIndex < updatedOrder.length) {
+                    updatedOrder[nextIndex].status = 'choosing';
+                    setCurrentTurnIndex(nextIndex);
+                }
+
+                setDrawnOrder(updatedOrder);
+
+                // 📡 ATUALIZAR EM TEMPO REAL
+                if (selectedBuilding?.id) {
+                    const hasAbsentWithoutSpots = updatedOrder.some(
+                        (p: DrawnParticipant) => p.status === 'skipped' && p.allocatedSpots.length === 0
+                    );
+                    const allDoneCheck = updatedOrder.every((p: DrawnParticipant) => 
+                        p.status === 'completed' || p.status === 'skipped'
+                    );
+                    const newStatus = (allDoneCheck && !hasAbsentWithoutSpots) ? 'completed' : 'in_progress';
+
+                    saveChoiceLotteryLive(
+                        selectedBuilding.id,
+                        selectedBuilding.name || 'Condomínio',
+                        'Sorteio de Escolha',
+                        updatedOrder,
+                        nextIndex < updatedOrder.length ? nextIndex : currentTurnIndex,
+                        newStatus as 'in_progress' | 'completed',
+                        selectedBuilding.company
+                    );
+                }
+
+                // Verificar se todos completaram (incluindo skipped)
+                const allDone = updatedOrder.every((p: DrawnParticipant) => 
                     p.status === 'completed' || p.status === 'skipped'
                 );
-                // Só marcar como completed se todos terminaram E não há ausentes sem vagas
-                const newStatus = (allDoneCheck && !hasAbsentWithoutSpots) ? 'completed' : 'in_progress';
 
-                saveChoiceLotteryLive(
-                    selectedBuilding.id,
-                    selectedBuilding.name || 'Condomínio',
-                    'Sorteio de Escolha',
-                    updatedOrder,
-                    nextIndex < updatedOrder.length ? nextIndex : currentTurnIndex,
-                    newStatus as 'in_progress' | 'completed',
-                    selectedBuilding.company
-                );
+                if (allDone) {
+                    handleFinalizeSession(updatedOrder, updatedAvailable);
+                } else {
+                    toast({
+                        title: "Participante concluído!",
+                        description: `${currentParticipant.block ? `Bloco ${currentParticipant.block} - ` : ''}Unidade ${currentParticipant.unit} escolheu ${spotsAllocatedNow} vaga(s).`,
+                    });
+                }
+
+                setPendingSpot(null);
+                setIsSelectingSpot(false);
             }
-
-            // Verificar se todos completaram (incluindo skipped)
-            const allDone = updatedOrder.every((p: DrawnParticipant) => 
-                p.status === 'completed' || p.status === 'skipped'
-            );
-
-            if (allDone) {
-                handleFinalizeSession(updatedOrder, updatedAvailable);
-            } else {
-                toast({
-                    title: "Participante concluído!",
-                    description: `${currentParticipant.block ? `Bloco ${currentParticipant.block} - ` : ''}Unidade ${currentParticipant.unit} escolheu ${spotsAllocatedNow} vaga(s).`,
-                });
-            }
-
-            // ✅ Apenas fechar dialog quando completou TODAS as vagas
-            setPendingSpot(null);
-            setIsSelectingSpot(false);
         }
     };
 
@@ -988,19 +1023,72 @@ export default function LotteryChoiceSystem(): JSX.Element {
             // Parceiro completou - marcar como completo e remover da fila
             updatedPartner.status = 'completed';
             updatedOrder[partnerIndex] = updatedPartner;
-            setDrawnOrder(updatedOrder);
 
-            // 📡 ATUALIZAR EM TEMPO REAL
-            if (selectedBuilding?.id) {
-                saveChoiceLotteryLive(
-                    selectedBuilding.id,
-                    selectedBuilding.name || 'Condomínio',
-                    'Sorteio de Escolha',
-                    updatedOrder,
-                    currentTurnIndex,
-                    'in_progress',
-                    selectedBuilding.company
+            // Verificar se o participante atual também já completou suas vagas
+            const currentP = updatedOrder[currentTurnIndex];
+            const currentSpotsNeeded = currentP.numberOfSpots || 1;
+            const currentCompleted = currentP.allocatedSpots.length >= currentSpotsNeeded;
+
+            if (currentCompleted) {
+                // Participante atual também concluiu - marcar como completed e avançar turno
+                updatedOrder[currentTurnIndex] = { ...updatedOrder[currentTurnIndex], status: 'completed' };
+
+                let nextIndex = currentTurnIndex + 1;
+                while (nextIndex < updatedOrder.length && 
+                       (updatedOrder[nextIndex].status === 'completed' || updatedOrder[nextIndex].status === 'skipped')) {
+                    nextIndex++;
+                }
+
+                if (nextIndex < updatedOrder.length) {
+                    updatedOrder[nextIndex].status = 'choosing';
+                    setCurrentTurnIndex(nextIndex);
+                }
+
+                setDrawnOrder(updatedOrder);
+
+                // 📡 ATUALIZAR EM TEMPO REAL
+                if (selectedBuilding?.id) {
+                    const hasAbsentWithoutSpots = updatedOrder.some(
+                        (p: DrawnParticipant) => p.status === 'skipped' && p.allocatedSpots.length === 0
+                    );
+                    const allDoneCheck = updatedOrder.every((p: DrawnParticipant) => 
+                        p.status === 'completed' || p.status === 'skipped'
+                    );
+                    const newStatus = (allDoneCheck && !hasAbsentWithoutSpots) ? 'completed' : 'in_progress';
+
+                    saveChoiceLotteryLive(
+                        selectedBuilding.id,
+                        selectedBuilding.name || 'Condomínio',
+                        'Sorteio de Escolha',
+                        updatedOrder,
+                        nextIndex < updatedOrder.length ? nextIndex : currentTurnIndex,
+                        newStatus as 'in_progress' | 'completed',
+                        selectedBuilding.company
+                    );
+                }
+
+                const allDone = updatedOrder.every((p: DrawnParticipant) => 
+                    p.status === 'completed' || p.status === 'skipped'
                 );
+
+                if (allDone) {
+                    handleFinalizeSession(updatedOrder, updatedAvailable);
+                }
+            } else {
+                setDrawnOrder(updatedOrder);
+
+                // 📡 ATUALIZAR EM TEMPO REAL
+                if (selectedBuilding?.id) {
+                    saveChoiceLotteryLive(
+                        selectedBuilding.id,
+                        selectedBuilding.name || 'Condomínio',
+                        'Sorteio de Escolha',
+                        updatedOrder,
+                        currentTurnIndex,
+                        'in_progress',
+                        selectedBuilding.company
+                    );
+                }
             }
 
             toast({
