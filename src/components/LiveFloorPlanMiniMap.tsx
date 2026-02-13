@@ -242,7 +242,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
               <SelectTrigger className="h-8 w-40 text-xs">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[200]">
                 {availableFloors.map(floor => (
                   <SelectItem key={floor} value={floor} className="text-xs">{floor}</SelectItem>
                 ))}
