@@ -2295,7 +2295,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     <CardContent>
                         <ScrollArea className={sessionFinalized ? "h-[calc(100vh-200px)]" : "h-[600px]"}>
                             <div className="space-y-2">
-                                {drawnOrder.map((participant: DrawnParticipant) => (
+                                {drawnOrder.map((participant: DrawnParticipant, index: number) => (
                                     <div
                                         key={participant.id}
                                         id={`participant-${participant.id}`}
@@ -2322,7 +2322,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                                 ? 'bg-orange-400 text-white'
                                                                 : 'bg-muted text-muted-foreground'
                                                 }`}>
-                                                    {participant.drawOrder}°
+                                                    {index + 1}°
                                                 </div>
                                                 <div>
                                                     <div className="font-medium flex items-center gap-2 flex-wrap">
