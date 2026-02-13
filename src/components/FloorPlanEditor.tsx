@@ -378,6 +378,16 @@ export const FloorPlanEditor: React.FC = () => {
             {isEditing ? <Eye className="h-4 w-4" /> : <Edit3 className="h-4 w-4" />}
             {isEditing ? 'Visualizar' : 'Editar'}
           </Button>
+          {placedSpotIds.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleResetMarkers}
+              className="gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Resetar ({placedSpotIds.length})
+            </Button>
+          )}
         </div>
       </div>
 
