@@ -42,6 +42,7 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [liveSearchTerm, setLiveSearchTerm] = useState('');
   const [filterPriority, setFilterPriority] = useState<ParticipantFilter>('all');
   const [filterSpotType, setFilterSpotType] = useState<SpotTypeFilter>('all');
   const [filterBlock, setFilterBlock] = useState<string>('all');
@@ -200,6 +201,18 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
       );
     });
   }, [data, searchTerm, filterPriority, filterSpotType, filterBlock]);
+
+  // Filtrar participantes ao vivo
+  const filteredLiveOrder = useMemo(() => {
+    if (!liveData) return [];
+    if (!liveSearchTerm) return liveData.drawnOrder;
+    const term = liveSearchTerm.toLowerCase();
+    return liveData.drawnOrder.filter(p =>
+      (p.name && p.name.toLowerCase().includes(term)) ||
+      (p.unit && p.unit.toLowerCase().includes(term)) ||
+      (p.block && p.block.toLowerCase().includes(term))
+    );
+  }, [liveData, liveSearchTerm]);
 
   // Estatísticas
   const stats = useMemo(() => {
@@ -489,8 +502,19 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Busca rápida */}
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Buscar por unidade, bloco ou nome..."
+                  value={liveSearchTerm}
+                  onChange={(e) => setLiveSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent"
+                />
+              </div>
               <div className="space-y-2">
-                {liveData.drawnOrder.map((participant, index) => (
+                {filteredLiveOrder.map((participant, index) => (
                   <div 
                     key={participant.id}
                     className={`p-4 rounded-lg border transition-all ${
@@ -528,11 +552,11 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                             {participant.hasMotorcycle && <Badge variant="motorcycle" className="text-xs">Motocicleta</Badge>}
                             {/* Preferências */}
                             {participant.prefersCommonSpot && <Badge variant="common" className="text-xs">Pref. Vaga Comum</Badge>}
-                            {participant.prefersCovered && <Badge variant="covered" className="text-xs">Pref. Coberta</Badge>}
-                            {participant.prefersUncovered && <Badge variant="uncovered" className="text-xs">Pref. Descoberta</Badge>}
-                            {participant.prefersLinkedSpot && <Badge variant="linked" className="text-xs">Pref. Presa</Badge>}
-                            {participant.prefersUnlinkedSpot && <Badge variant="unlinked" className="text-xs">Pref. Livre</Badge>}
-                            {participant.prefersSmallSpot && <Badge variant="small" className="text-xs">Pref. Pequena</Badge>}
+                            {participant.prefersCovered && <Badge variant="covered" className="text-xs">Pref. Vaga Coberta</Badge>}
+                            {participant.prefersUncovered && <Badge variant="uncovered" className="text-xs">Pref. Vaga Descoberta</Badge>}
+                            {participant.prefersLinkedSpot && <Badge variant="linked" className="text-xs">Pref. Vaga Presa</Badge>}
+                            {participant.prefersUnlinkedSpot && <Badge variant="unlinked" className="text-xs">Pref. Vaga Livre</Badge>}
+                            {participant.prefersSmallSpot && <Badge variant="small" className="text-xs">Pref. Vaga Pequena</Badge>}
                           </div>
                         </div>
                       </div>
