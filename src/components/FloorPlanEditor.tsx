@@ -130,8 +130,8 @@ export const FloorPlanEditor: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file || !selectedBuilding?.id) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Selecione um arquivo de imagem válido');
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+      toast.error('Selecione um arquivo de imagem ou PDF válido');
       return;
     }
 
@@ -344,7 +344,7 @@ export const FloorPlanEditor: React.FC = () => {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/*,.pdf"
                       onChange={handleImageUpload}
                       className="hidden"
                     />
