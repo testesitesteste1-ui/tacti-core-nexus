@@ -536,7 +536,7 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
                             ? 'bg-green-500 text-white'
                             : 'bg-gray-300 text-gray-700'
                         }`}>
-                          {participant.drawOrder}
+                          {participant.drawOrder}°
                         </span>
                         <div>
                           <p className="font-medium">
