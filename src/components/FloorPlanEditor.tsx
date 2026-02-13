@@ -290,15 +290,25 @@ export const FloorPlanEditor: React.FC = () => {
     }));
     toast.success(`${unplacedSpots.length} vagas posicionadas. Arraste para ajustar.`);
   };
-  const handleResetMarkers = () => {
-    if (!currentPlan) return;
-    const count = Object.keys(currentPlan.markers ?? {}).length;
+  const handleResetMarkers = async () => {
+    // Reset markers locally
     setFloorPlans(prev => ({
       ...prev,
       [selectedFloor]: { ...prev[selectedFloor], markers: {} },
     }));
     setHighlightedSpotId(null);
-    toast.info(`${count} marcador(es) removido(s). Posicione novamente.`);
+
+    // Also save to Firebase immediately to clear orphaned markers
+    if (selectedBuilding?.id && currentPlan) {
+      try {
+        await set(dbRef(database, `buildings/${selectedBuilding.id}/floorPlans/${selectedFloor}/markers`), {});
+        toast.success('Marcadores resetados! Posicione novamente.');
+      } catch (error) {
+        toast.error('Erro ao resetar no servidor');
+      }
+    } else {
+      toast.info('Marcadores resetados localmente.');
+    }
   };
 
   const handleSave = async () => {
@@ -378,16 +388,14 @@ export const FloorPlanEditor: React.FC = () => {
             {isEditing ? <Eye className="h-4 w-4" /> : <Edit3 className="h-4 w-4" />}
             {isEditing ? 'Visualizar' : 'Editar'}
           </Button>
-          {placedSpotIds.length > 0 && (
-            <Button
-              variant="destructive"
-              onClick={handleResetMarkers}
-              className="gap-2"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Resetar ({placedSpotIds.length})
-            </Button>
-          )}
+          <Button
+            variant="destructive"
+            onClick={handleResetMarkers}
+            className="gap-2"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Resetar
+          </Button>
         </div>
       </div>
 
