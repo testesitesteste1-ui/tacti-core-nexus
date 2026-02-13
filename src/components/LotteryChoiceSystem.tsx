@@ -2274,7 +2274,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ScrollArea className="h-[400px]">
+                        <ScrollArea className={sessionFinalized ? "h-[calc(100vh-200px)]" : "h-[600px]"}>
                             <div className="space-y-2">
                                 {drawnOrder.map((participant: DrawnParticipant) => (
                                     <div
@@ -2317,9 +2317,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                                         {participant.prefersCommonSpot && <Badge variant="common" className="text-xs">Pref. Vaga Comum</Badge>}
                                                         {participant.prefersCovered && <Badge variant="covered" className="text-xs">Pref. Vaga Coberta</Badge>}
                                                         {participant.prefersUncovered && <Badge variant="uncovered" className="text-xs">Pref. Vaga Descoberta</Badge>}
-                                                        {participant.prefersLinkedSpot && <Badge variant="linked" className="text-xs">Pref. Presa</Badge>}
-                                                        {participant.prefersUnlinkedSpot && <Badge variant="unlinked" className="text-xs">Pref. Livre</Badge>}
-                                                        {participant.prefersSmallSpot && <Badge variant="small" className="text-xs">Pref. Pequena</Badge>}
+                                                        {participant.prefersLinkedSpot && <Badge variant="linked" className="text-xs">Pref. Vaga Presa</Badge>}
+                                                        {participant.prefersUnlinkedSpot && <Badge variant="unlinked" className="text-xs">Pref. Vaga Livre</Badge>}
+                                                        {participant.prefersSmallSpot && <Badge variant="small" className="text-xs">Pref. Vaga Pequena</Badge>}
                                                     </div>
                                                 </div>
                                             </div>
