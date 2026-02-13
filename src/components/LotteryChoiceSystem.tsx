@@ -1673,13 +1673,13 @@ export default function LotteryChoiceSystem(): JSX.Element {
         const badges: { label: string; variant: string; icon: string }[] = [];
 
         // Verificar tipos específicos
-        if (types.includes('Vaga PcD')) badges.push({ label: 'PcD', variant: 'pcd', icon: '♿' });
-        if (types.includes('Vaga Idoso')) badges.push({ label: 'Idoso', variant: 'elderly', icon: '👴' });
-        if (types.includes('Vaga Grande')) badges.push({ label: 'Grande', variant: 'large', icon: '🚙' });
-        if (types.includes('Vaga Pequena')) badges.push({ label: 'Pequena', variant: 'small', icon: '🚗' });
-        if (types.includes('Vaga Motocicleta')) badges.push({ label: 'Motocicleta', variant: 'motorcycle', icon: '🏍️' });
-        if (types.includes('Vaga Presa')) badges.push({ label: 'Presa', variant: 'linked', icon: '🔗' });
-        if (types.includes('Vaga Livre')) badges.push({ label: 'Livre', variant: 'unlinked', icon: '🔓' });
+        if (types.includes('Vaga PcD')) badges.push({ label: 'Vaga PcD', variant: 'pcd', icon: '♿' });
+        if (types.includes('Vaga Idoso')) badges.push({ label: 'Vaga Idoso', variant: 'elderly', icon: '👴' });
+        if (types.includes('Vaga Grande')) badges.push({ label: 'Vaga Grande', variant: 'large', icon: '🚙' });
+        if (types.includes('Vaga Pequena')) badges.push({ label: 'Vaga Pequena', variant: 'small', icon: '🚗' });
+        if (types.includes('Vaga Motocicleta')) badges.push({ label: 'Vaga Motocicleta', variant: 'motorcycle', icon: '🏍️' });
+        if (types.includes('Vaga Presa')) badges.push({ label: 'Vaga Presa', variant: 'linked', icon: '🔗' });
+        if (types.includes('Vaga Livre')) badges.push({ label: 'Vaga Livre', variant: 'unlinked', icon: '🔓' });
         
         // Cobertura
         const hasCoverage = spot.isCovered || types.includes('Vaga Coberta') || spot.isUncovered || types.includes('Vaga Descoberta');
@@ -1697,7 +1697,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
             t !== 'Vaga Descoberta'
         );
         if (types.includes('Vaga Comum') && !hasSpecificType && !hasCoverage) {
-            badges.push({ label: 'Comum', variant: 'common', icon: '🅿️' });
+            badges.push({ label: 'Vaga Comum', variant: 'common', icon: '🅿️' });
         }
 
         return badges;
@@ -2108,11 +2108,11 @@ export default function LotteryChoiceSystem(): JSX.Element {
                             {currentParticipant.hasSmallCar && <Badge variant="small">Veículo Pequeno</Badge>}
                             {currentParticipant.hasLargeCar && <Badge variant="large">Veículo Grande</Badge>}
                             {currentParticipant.hasMotorcycle && <Badge variant="motorcycle">Motocicleta</Badge>}
-                            {currentParticipant.prefersCommonSpot && <Badge variant="common">P. Comum</Badge>}
+                            {currentParticipant.prefersCommonSpot && <Badge variant="common">P. Vaga Comum</Badge>}
                             {currentParticipant.prefersCovered && <Badge variant="covered">P. Vaga Coberta</Badge>}
                             {currentParticipant.prefersUncovered && <Badge variant="uncovered">P. Vaga Descoberta</Badge>}
-                            {currentParticipant.prefersLinkedSpot && <Badge variant="linked">P. Presa</Badge>}
-                            {currentParticipant.prefersUnlinkedSpot && <Badge variant="unlinked">P. Livre</Badge>}
+                            {currentParticipant.prefersLinkedSpot && <Badge variant="linked">P. Vaga Presa</Badge>}
+                            {currentParticipant.prefersUnlinkedSpot && <Badge variant="unlinked">P. Vaga Livre</Badge>}
                         </CardTitle>
                         <CardDescription>
                             {currentParticipant.block && `Bloco ${currentParticipant.block} - `}
