@@ -107,8 +107,11 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
   const getSpotStatus = (spotId: string) => {
     const spot = parkingSpots.find((s: any) => s.id === spotId);
     if (!spot) return 'available';
+    // During live lottery, liveData is the source of truth
     if (choosingSpotNumbers.has(spot.number)) return 'choosing';
     if (chosenSpotNumbers.has(spot.number)) return 'chosen';
+    // If liveData exists (active session), don't trust parkingSpots status — it may lag
+    if (liveData) return 'available';
     return spot.status || 'available';
   };
 
