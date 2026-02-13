@@ -97,6 +97,26 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
     return spot.status || 'available';
   };
 
+  const getSpotLabels = (spot: any): string[] => {
+    const labels: string[] = [];
+    // Cobertura (badge rules: Comum só se não tem Coberta/Descoberta)
+    const hasCoverage = spot.isCovered || spot.isUncovered;
+    if (spot.isCovered) labels.push('Coberta');
+    if (spot.isUncovered) labels.push('Descoberta');
+    if (!hasCoverage) labels.push('Comum');
+    // Tipo
+    const types: string[] = spot.type || [];
+    if (types.includes('presa')) labels.push('Presa');
+    if (types.includes('livre')) labels.push('Livre');
+    if (types.includes('idoso')) labels.push('Idoso');
+    if (types.includes('pcd')) labels.push('PCD');
+    if (types.includes('moto')) labels.push('Moto');
+    // Tamanho
+    const sizeMap: Record<string, string> = { P: 'Pequena', M: 'Média', G: 'Grande', XG: 'Extra Grande' };
+    if (spot.size && sizeMap[spot.size]) labels.push(sizeMap[spot.size]);
+    return labels;
+  };
+
   const getMarkerColor = (status: string) => {
     switch (status) {
       case 'choosing': return 'bg-yellow-400 border-yellow-600 animate-pulse';
@@ -283,24 +303,55 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
               const spot = parkingSpots.find((s: any) => s.id === spotId);
               if (!spot) return null;
               const status = getSpotStatus(spotId);
+              const labels = getSpotLabels(spot);
               return (
                 <div
                   key={spotId}
-                  className={cn(
-                    'absolute flex items-center justify-center rounded-full border-2 text-white font-bold shadow-lg',
-                    'w-7 h-7 text-[9px] md:w-9 md:h-9 md:text-[11px]',
-                    getMarkerColor(status),
-                    status === 'chosen' && 'ring-2 ring-red-300',
-                    status === 'choosing' && 'ring-2 ring-yellow-300 scale-110',
-                  )}
+                  className="absolute flex flex-col items-center"
                   style={{
                     left: `${pos.x}%`,
                     top: `${pos.y}%`,
                     transform: 'translate(-50%, -50%)',
                   }}
-                  title={`Vaga ${spot.number}`}
                 >
-                  {spot.number}
+                  <div
+                    className={cn(
+                      'flex items-center justify-center rounded-full border-2 text-white font-bold shadow-lg',
+                      'w-7 h-7 text-[9px] md:w-9 md:h-9 md:text-[11px]',
+                      getMarkerColor(status),
+                      status === 'chosen' && 'ring-2 ring-red-300',
+                      status === 'choosing' && 'ring-2 ring-yellow-300 scale-110',
+                    )}
+                    title={`Vaga ${spot.number}`}
+                  >
+                    {spot.number}
+                  </div>
+                  {labels.length > 0 && (
+                    <div className="flex flex-wrap gap-[1px] justify-center mt-0.5 max-w-[80px]">
+                      {labels.map((label) => (
+                        <span
+                          key={label}
+                          className={cn(
+                            'text-[5px] md:text-[6px] leading-tight px-1 py-[0.5px] rounded-sm font-semibold whitespace-nowrap',
+                            label === 'Coberta' && 'bg-blue-500 text-white',
+                            label === 'Descoberta' && 'bg-amber-500 text-white',
+                            label === 'Comum' && 'bg-gray-400 text-white',
+                            label === 'Presa' && 'bg-purple-500 text-white',
+                            label === 'Livre' && 'bg-teal-500 text-white',
+                            label === 'Idoso' && 'bg-orange-500 text-white',
+                            label === 'PCD' && 'bg-blue-700 text-white',
+                            label === 'Moto' && 'bg-rose-500 text-white',
+                            label === 'Pequena' && 'bg-cyan-500 text-white',
+                            label === 'Média' && 'bg-emerald-500 text-white',
+                            label === 'Grande' && 'bg-indigo-500 text-white',
+                            label === 'Extra Grande' && 'bg-violet-500 text-white',
+                          )}
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
