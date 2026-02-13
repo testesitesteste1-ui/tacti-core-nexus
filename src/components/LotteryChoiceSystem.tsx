@@ -1455,8 +1455,6 @@ export default function LotteryChoiceSystem(): JSX.Element {
                                 badges.push('<span class="priority pcd">PcD</span>');
                             } else if (participant.isElderly) {
                                 badges.push('<span class="priority elderly">Idoso</span>');
-                            } else {
-                                badges.push('<span class="priority normal">Normal</span>');
                             }
                             // Veículos
                             if (participant.hasLargeCar) badges.push('<span class="priority large">Veículo Grande</span>');
