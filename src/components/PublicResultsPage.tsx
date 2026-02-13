@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { fetchPublicResults, PublicLotteryData, formatLotteryDate, ChoiceLotteryLiveData } from '@/utils/publicResults';
+import { FloorPlanViewer } from '@/components/FloorPlanViewer';
 import { generateLotteryPDF } from '@/utils/pdfGenerator';
 import { ParkingSpot, SpotType } from '@/types/lottery';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -630,6 +631,11 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Planta Visual em Tempo Real */}
+          {buildingId && (
+            <FloorPlanViewer buildingId={buildingId} liveData={liveData} />
+          )}
         </div>
       </div>
     );
