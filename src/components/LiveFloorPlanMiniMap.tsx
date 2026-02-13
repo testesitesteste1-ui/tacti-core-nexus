@@ -73,6 +73,20 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
     return chosen;
   }, [liveData]);
 
+  // Map spot number -> participant who chose it
+  const spotToParticipant = useMemo(() => {
+    if (!liveData) return new Map<string, { name: string; block: string; unit: string }>();
+    const map = new Map<string, { name: string; block: string; unit: string }>();
+    liveData.drawnOrder.forEach(p => {
+      if ((p.status === 'completed' || p.status === 'choosing') && p.allocatedSpots) {
+        p.allocatedSpots.forEach(s => {
+          if (s.number) map.set(s.number, { name: p.name, block: p.block, unit: p.unit });
+        });
+      }
+    });
+    return map;
+  }, [liveData]);
+
   // Spot being chosen RIGHT NOW
   const choosingSpotNumbers = useMemo(() => {
     if (!liveData) return new Set<string>();
@@ -300,7 +314,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
               className="w-full h-auto block"
               draggable={false}
             />
-            <TooltipProvider delayDuration={100}>
+            <TooltipProvider delayDuration={0}>
               {Object.entries(currentPlan.markers || {}).map(([spotId, pos]) => {
                 const spot = parkingSpots.find((s: any) => s.id === spotId);
                 if (!spot) return null;
@@ -333,7 +347,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                     </TooltipTrigger>
                     <TooltipContent
                       side="top"
-                      className="bg-gray-900 text-white border-gray-700 px-3 py-2 max-w-[200px] z-[300]"
+                      className="bg-gray-900 text-white border-gray-700 px-3 py-2 max-w-[220px] z-[300]"
                     >
                       <p className="font-bold text-xs mb-1">Vaga {spot.number}</p>
                       <div className="flex flex-wrap gap-1">
@@ -360,6 +374,17 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                           </span>
                         ))}
                       </div>
+                      {(() => {
+                        const participant = spotToParticipant.get(spot.number);
+                        if (participant) {
+                          return (
+                            <p className="text-[10px] text-blue-300 mt-1 font-medium">
+                              🏠 Bloco {participant.block} - Unid. {participant.unit}
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
                       <p className="text-[9px] text-gray-400 mt-1">
                         {status === 'chosen' ? '🔴 Escolhida' : status === 'choosing' ? '🟡 Escolhendo agora' : '🟢 Disponível'}
                       </p>
