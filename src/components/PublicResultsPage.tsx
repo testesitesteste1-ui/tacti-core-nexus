@@ -48,7 +48,7 @@ export const PublicResultsPage: React.FC<Props> = ({ buildingId }) => {
   const [filterPriority, setFilterPriority] = useState<ParticipantFilter>('all');
   const [filterSpotType, setFilterSpotType] = useState<SpotTypeFilter>('all');
   const [filterBlock, setFilterBlock] = useState<string>('all');
-  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+  const [isMapFullscreen, setIsMapFullscreen] = useState(true);
 
   useEffect(() => {
     if (!buildingId) return;
