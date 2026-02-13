@@ -6,7 +6,7 @@ import { ParkingManagement } from '@/components/ParkingManagement';
 import { LotterySystem } from '@/components/LotterySystem';
 import { SectorLotterySystem } from '@/components/SectorLotterySystem';
 import LotteryChoiceSystem from '@/components/LotteryChoiceSystem'; // ✅ ADICIONE ESTA LINHA
-import { InteractiveParkingMap } from '@/components/InteractiveParkingMap';
+import { FloorPlanEditor } from '@/components/FloorPlanEditor';
 import { ReportsHistory } from '@/components/ReportsHistory';
 import { BuildingSelector } from '@/components/BuildingSelector';
 import { useAppContext } from '@/context/AppContext';
@@ -53,7 +53,7 @@ const Index = () => {
       case 'parking':
         return <ParkingManagement />;
       case 'map':
-        return <InteractiveParkingMap />;
+        return <FloorPlanEditor />;
       case 'lottery':
         return <LotterySystem />;
       case 'choice-lottery':  // ✅ ADICIONE ESTE CASE
