@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { MapPin, Maximize2, Minimize2, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { database } from '@/config/firebase';
 import { ref, onValue } from 'firebase/database';
@@ -299,62 +300,74 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
               className="w-full h-auto block"
               draggable={false}
             />
-            {Object.entries(currentPlan.markers || {}).map(([spotId, pos]) => {
-              const spot = parkingSpots.find((s: any) => s.id === spotId);
-              if (!spot) return null;
-              const status = getSpotStatus(spotId);
-              const labels = getSpotLabels(spot);
-              return (
-                <div
-                  key={spotId}
-                  className="absolute flex flex-col items-center"
-                  style={{
-                    left: `${pos.x}%`,
-                    top: `${pos.y}%`,
-                    transform: 'translate(-50%, -50%)',
-                  }}
-                >
-                  <div
-                    className={cn(
-                      'flex items-center justify-center rounded-full border-2 text-white font-bold shadow-lg',
-                      'w-7 h-7 text-[9px] md:w-9 md:h-9 md:text-[11px]',
-                      getMarkerColor(status),
-                      status === 'chosen' && 'ring-2 ring-red-300',
-                      status === 'choosing' && 'ring-2 ring-yellow-300 scale-110',
-                    )}
-                    title={`Vaga ${spot.number}`}
-                  >
-                    {spot.number}
-                  </div>
-                  {labels.length > 0 && (
-                    <div className="flex flex-wrap gap-[1px] justify-center mt-0.5 max-w-[80px]">
-                      {labels.map((label) => (
-                        <span
-                          key={label}
+            <TooltipProvider delayDuration={100}>
+              {Object.entries(currentPlan.markers || {}).map(([spotId, pos]) => {
+                const spot = parkingSpots.find((s: any) => s.id === spotId);
+                if (!spot) return null;
+                const status = getSpotStatus(spotId);
+                const labels = getSpotLabels(spot);
+                return (
+                  <Tooltip key={spotId}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="absolute flex flex-col items-center cursor-pointer group"
+                        style={{
+                          left: `${pos.x}%`,
+                          top: `${pos.y}%`,
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                      >
+                        <div
                           className={cn(
-                            'text-[5px] md:text-[6px] leading-tight px-1 py-[0.5px] rounded-sm font-semibold whitespace-nowrap',
-                            label === 'Coberta' && 'bg-blue-500 text-white',
-                            label === 'Descoberta' && 'bg-amber-500 text-white',
-                            label === 'Comum' && 'bg-gray-400 text-white',
-                            label === 'Presa' && 'bg-purple-500 text-white',
-                            label === 'Livre' && 'bg-teal-500 text-white',
-                            label === 'Idoso' && 'bg-orange-500 text-white',
-                            label === 'PCD' && 'bg-blue-700 text-white',
-                            label === 'Moto' && 'bg-rose-500 text-white',
-                            label === 'Pequena' && 'bg-cyan-500 text-white',
-                            label === 'Média' && 'bg-emerald-500 text-white',
-                            label === 'Grande' && 'bg-indigo-500 text-white',
-                            label === 'Extra Grande' && 'bg-violet-500 text-white',
+                            'flex items-center justify-center rounded-full border-2 text-white font-bold shadow-lg transition-transform',
+                            'w-7 h-7 text-[9px] md:w-9 md:h-9 md:text-[11px]',
+                            'group-hover:scale-125 group-hover:z-10',
+                            getMarkerColor(status),
+                            status === 'chosen' && 'ring-2 ring-red-300',
+                            status === 'choosing' && 'ring-2 ring-yellow-300 scale-110',
                           )}
                         >
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                          {spot.number}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      className="bg-gray-900 text-white border-gray-700 px-3 py-2 max-w-[200px] z-[300]"
+                    >
+                      <p className="font-bold text-xs mb-1">Vaga {spot.number}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {labels.map((label) => (
+                          <span
+                            key={label}
+                            className={cn(
+                              'text-[9px] px-1.5 py-0.5 rounded font-medium',
+                              label === 'Coberta' && 'bg-blue-500/80',
+                              label === 'Descoberta' && 'bg-amber-500/80',
+                              label === 'Comum' && 'bg-gray-500/80',
+                              label === 'Presa' && 'bg-purple-500/80',
+                              label === 'Livre' && 'bg-teal-500/80',
+                              label === 'Idoso' && 'bg-orange-500/80',
+                              label === 'PCD' && 'bg-blue-700/80',
+                              label === 'Moto' && 'bg-rose-500/80',
+                              label === 'Pequena' && 'bg-cyan-500/80',
+                              label === 'Média' && 'bg-emerald-500/80',
+                              label === 'Grande' && 'bg-indigo-500/80',
+                              label === 'Extra Grande' && 'bg-violet-500/80',
+                            )}
+                          >
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-gray-400 mt-1">
+                        {status === 'chosen' ? '🔴 Escolhida' : status === 'choosing' ? '🟡 Escolhendo agora' : '🟢 Disponível'}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </TooltipProvider>
           </div>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
