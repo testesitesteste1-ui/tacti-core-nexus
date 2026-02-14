@@ -1,8 +1,17 @@
+// Setores pré-definidos
+export const AVAILABLE_SECTORS = [
+  'Setor A', 'Setor B', 'Setor C', 'Setor D', 'Setor E',
+  'Setor F', 'Setor G', 'Setor H', 'Setor I', 'Setor J',
+] as const;
+
+export type SectorName = typeof AVAILABLE_SECTORS[number];
+
 export interface Building {
   id: string;
   name: string;
   address?: string;
   company?: 'exvagas'; // Empresa responsável pelo condomínio
+  sectorProximity?: Record<string, string[]>; // Mapa de setor -> setores próximos em ordem de prioridade
   createdAt: Date;
 }
 
@@ -12,6 +21,7 @@ export interface Participant {
   name: string;
   block: string;
   unit: string;
+  sector?: SectorName; // Setor designado ao participante
   hasSpecialNeeds: boolean;
   isElderly?: boolean;
   hasLargeCar?: boolean;
@@ -36,6 +46,7 @@ export interface ParkingSpot {
   buildingId: string;
   number: string;
   floor: 'Piso Único' | 'Térreo' | '1° SubSolo' | '2° SubSolo' | '3° SubSolo' | '4° SubSolo' | '5° SubSolo' | 'Ed. Garagem (1° Andar)' | 'Ed. Garagem (2° Andar)' | 'Ed. Garagem (3° Andar)' | 'Ed. Garagem (4° Andar)' | 'Ed. Garagem (5° Andar)';
+  sector?: SectorName; // Setor onde a vaga se encontra
   type: SpotType[];
   size: 'P' | 'M' | 'G' | 'XG';
   status: 'available' | 'occupied' | 'reserved';

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,22 +9,16 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Play, Settings, Users, Trophy, MapPin, CheckCircle, Building, RotateCcw, ParkingSquare } from 'lucide-react';
-import { Participant, ParkingSpot, LotteryResult, LotterySession } from '@/types/lottery';
+import { Participant, ParkingSpot, LotteryResult, LotterySession, AVAILABLE_SECTORS, SectorName } from '@/types/lottery';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { generateLotteryPDF } from '@/utils/pdfGenerator';
 import { savePublicResults } from '@/utils/publicResults';
 
 // Tipos específicos para o sorteio por setor
-type SectorType = 'A' | 'B' | 'C';
-
 interface SectorLotteryConfig {
   sessionName: string;
-  sectorMapping: {
-    A: SectorType[];
-    B: SectorType[];
-    C: SectorType[];
-  };
+  sectorMapping: Record<string, string[]>; // Setor -> setores próximos em ordem de prioridade
 }
 
 export const SectorLotterySystem = () => {
@@ -52,15 +46,35 @@ export const SectorLotterySystem = () => {
   const [selectedPcdSpot, setSelectedPcdSpot] = useState<string | null>(null);
   const [pcdSelectionResolve, setPcdSelectionResolve] = useState<((spotId: string | null) => void) | null>(null);
 
-  // Configuração de mapeamento de setores
+  // Setores em uso no condomínio (derivados dos dados reais)
+  const usedSectors = useMemo(() => {
+    const sectors = new Set<string>();
+    buildingParticipants.forEach(p => { if (p.sector) sectors.add(p.sector); });
+    buildingSpots.forEach(s => { if (s.sector) sectors.add(s.sector); });
+    return Array.from(sectors).sort();
+  }, [participants, parkingSpots, selectedBuilding?.id]);
+
+  // Configuração de mapeamento de setores (inicializar com setores em uso)
   const [config, setConfig] = useState<SectorLotteryConfig>({
     sessionName: `Sorteio Setorial ${new Date().toLocaleDateString('pt-BR')}`,
-    sectorMapping: {
-      A: ['A', 'B', 'C'],
-      B: ['B', 'A', 'C'],
-      C: ['C', 'B', 'A'],
-    }
+    sectorMapping: {},
   });
+
+  // Atualizar mapeamento quando setores em uso mudam
+  useEffect(() => {
+    if (usedSectors.length > 0) {
+      setConfig(prev => {
+        const newMapping: Record<string, string[]> = { ...prev.sectorMapping };
+        usedSectors.forEach(sector => {
+          if (!newMapping[sector]) {
+            // Padrão: o próprio setor primeiro, depois os outros na ordem
+            newMapping[sector] = [sector, ...usedSectors.filter(s => s !== sector)];
+          }
+        });
+        return { ...prev, sectorMapping: newMapping };
+      });
+    }
+  }, [usedSectors]);
 
   // Participantes e vagas do condomínio selecionado
   const buildingParticipants = useMemo(() =>
@@ -73,21 +87,15 @@ export const SectorLotterySystem = () => {
     [parkingSpots, selectedBuilding?.id]
   );
 
-  // Extrair setor do número da vaga (ex: "A-001" -> "A")
-  const getSpotSector = (spot: ParkingSpot): SectorType | null => {
-    const number = spot.number.toUpperCase();
-    if (number.startsWith('A')) return 'A';
-    if (number.startsWith('B')) return 'B';
-    if (number.startsWith('C')) return 'C';
+  // Extrair setor da vaga (usa campo sector, fallback para número)
+  const getSpotSector = (spot: ParkingSpot): string | null => {
+    if (spot.sector) return spot.sector;
     return null;
   };
 
-  // Extrair bloco do participante (normalizado para A, B ou C)
-  const getParticipantSector = (participant: Participant): SectorType | null => {
-    const block = participant.block.toUpperCase().trim();
-    if (block.includes('A') || block === '1' || block === 'BLOCO A' || block === 'BL A') return 'A';
-    if (block.includes('B') || block === '2' || block === 'BLOCO B' || block === 'BL B') return 'B';
-    if (block.includes('C') || block === '3' || block === 'BLOCO C' || block === 'BL C') return 'C';
+  // Extrair setor do participante (usa campo sector, fallback para bloco)
+  const getParticipantSector = (participant: Participant): string | null => {
+    if (participant.sector) return participant.sector;
     return null;
   };
 
@@ -119,9 +127,11 @@ export const SectorLotterySystem = () => {
     const pcdSpots = buildingSpots.filter(isSpotPcD);
     const normalSpots = buildingSpots.filter(s => !isSpotPcD(s));
 
-    const sectorASpots = buildingSpots.filter(s => getSpotSector(s) === 'A');
-    const sectorBSpots = buildingSpots.filter(s => getSpotSector(s) === 'B');
-    const sectorCSpots = buildingSpots.filter(s => getSpotSector(s) === 'C');
+    // Contagem dinâmica por setor
+    const sectorCounts: Record<string, number> = {};
+    usedSectors.forEach(sector => {
+      sectorCounts[sector] = buildingSpots.filter(s => getSpotSector(s) === sector).length;
+    });
 
     return {
       total: buildingParticipants.length,
@@ -132,11 +142,9 @@ export const SectorLotterySystem = () => {
       totalSpots: buildingSpots.length,
       pcdSpots: pcdSpots.length,
       normalSpots: normalSpots.length,
-      sectorA: sectorASpots.length,
-      sectorB: sectorBSpots.length,
-      sectorC: sectorCSpots.length,
+      sectorCounts,
     };
-  }, [buildingParticipants, buildingSpots]);
+  }, [buildingParticipants, buildingSpots, usedSectors]);
 
   // Função para aguardar escolha manual do PcD
   const waitForPcdManualSelection = (participant: Participant, availableSpots: ParkingSpot[]): Promise<string | null> => {
@@ -301,7 +309,7 @@ export const SectorLotterySystem = () => {
 
     for (const participant of uniqueParticipants) {
       const participantSector = getParticipantSector(participant);
-      const sectorPriority = participantSector ? config.sectorMapping[participantSector] : ['A', 'B', 'C'];
+      const sectorPriority = participantSector ? (config.sectorMapping[participantSector] || [participantSector, ...usedSectors.filter(s => s !== participantSector)]) : usedSectors;
 
       console.log(`   👤 ${participant.name} (Bloco ${participant.block}) - Prioridade setores: ${sectorPriority.join(' → ')}`);
       
@@ -429,7 +437,7 @@ export const SectorLotterySystem = () => {
     for (const participant of doubleParticipants) {
       const numberOfSpots = Math.max(2, participant.numberOfSpots || 2);
       const participantSector = getParticipantSector(participant);
-      const sectorPriority = participantSector ? config.sectorMapping[participantSector] : ['A', 'B', 'C'];
+      const sectorPriority = participantSector ? (config.sectorMapping[participantSector] || [participantSector, ...usedSectors.filter(s => s !== participantSector)]) : usedSectors;
 
       // ✅ NOVO: Determinar preferência estrita de coberta/descoberta
       const wantsCovered = participant.prefersCovered && !participant.prefersUncovered;
@@ -833,20 +841,23 @@ export const SectorLotterySystem = () => {
           <CardTitle className="text-lg">Vagas por Setor</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-amber-500/10 rounded-lg">
-              <div className="text-3xl font-bold text-amber-600">{stats.sectorA}</div>
-              <div className="text-sm text-muted-foreground">Setor A</div>
-            </div>
-            <div className="text-center p-4 bg-emerald-500/10 rounded-lg">
-              <div className="text-3xl font-bold text-emerald-600">{stats.sectorB}</div>
-              <div className="text-sm text-muted-foreground">Setor B</div>
-            </div>
-            <div className="text-center p-4 bg-sky-500/10 rounded-lg">
-              <div className="text-3xl font-bold text-sky-600">{stats.sectorC}</div>
-              <div className="text-sm text-muted-foreground">Setor C</div>
-            </div>
+          <div className={`grid gap-4 ${usedSectors.length <= 3 ? 'grid-cols-3' : usedSectors.length <= 5 ? 'grid-cols-5' : 'grid-cols-4'}`}>
+            {usedSectors.map((sector, idx) => {
+              const colors = ['amber', 'emerald', 'sky', 'purple', 'rose', 'teal', 'indigo', 'orange', 'cyan', 'violet'];
+              const color = colors[idx % colors.length];
+              return (
+                <div key={sector} className={`text-center p-4 bg-${color}-500/10 rounded-lg`}>
+                  <div className={`text-3xl font-bold text-${color}-600`}>{stats.sectorCounts[sector] || 0}</div>
+                  <div className="text-sm text-muted-foreground">{sector}</div>
+                </div>
+              );
+            })}
           </div>
+          {usedSectors.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center italic">
+              Nenhum setor configurado nas vagas.
+            </p>
+          )}
           <div className="mt-4 text-center">
             <Badge variant="outline" className="mr-2">PcD: {stats.pcdSpots}</Badge>
             <Badge variant="outline">Normal: {stats.normalSpots}</Badge>
@@ -927,8 +938,8 @@ export const SectorLotterySystem = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredResults.map((result, index) => {
-                    const spotSector = result.spotSnapshot?.number ?
-                      result.spotSnapshot.number.charAt(0).toUpperCase() : '-';
+                    const spot = parkingSpots.find(s => s.id === result.parkingSpotId);
+                    const spotSector = spot?.sector || '-';
 
                     return (
                       <TableRow key={result.id}>
@@ -945,15 +956,7 @@ export const SectorLotterySystem = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={
-                              spotSector === 'A' ? 'bg-amber-500/10 text-amber-600 border-amber-500' :
-                                spotSector === 'B' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500' :
-                                  spotSector === 'C' ? 'bg-sky-500/10 text-sky-600 border-sky-500' :
-                                    ''
-                            }
-                          >
+                          <Badge variant="outline">
                             {spotSector}
                           </Badge>
                         </TableCell>
@@ -1107,19 +1110,25 @@ export const SectorLotterySystem = () => {
             </div>
 
             <div className="space-y-3">
-              <Label>Mapeamento de Setores</Label>
+              <Label>Mapeamento de Setores (Ordem de Proximidade)</Label>
               <p className="text-xs text-muted-foreground">
-                Define a ordem de prioridade dos setores para cada bloco
+                Define a ordem de prioridade dos setores para cada setor. Se o setor designado lotou, o sistema tenta os próximos na ordem.
               </p>
 
-              {(['A', 'B', 'C'] as SectorType[]).map((block) => (
-                <div key={block} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
-                  <span className="font-medium w-20">Bloco {block}:</span>
-                  <span className="text-sm text-muted-foreground">
-                    {config.sectorMapping[block].join(' → ')}
-                  </span>
-                </div>
-              ))}
+              {usedSectors.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">
+                  Nenhum setor configurado. Cadastre setores nos participantes e vagas primeiro.
+                </p>
+              ) : (
+                usedSectors.map((sector) => (
+                  <div key={sector} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                    <span className="font-medium w-24">{sector}:</span>
+                    <span className="text-sm text-muted-foreground">
+                      {(config.sectorMapping[sector] || [sector]).join(' → ')}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="pt-4 border-t">

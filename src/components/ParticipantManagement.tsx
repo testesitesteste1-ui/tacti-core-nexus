@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Edit, Trash2, Users, AlertCircle, User, Upload, FileSpreadsheet, CheckCircle2, XCircle } from 'lucide-react';
-import { Participant } from '@/types/lottery';
+import { Participant, AVAILABLE_SECTORS, SectorName } from '@/types/lottery';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
@@ -66,6 +66,7 @@ export const ParticipantManagement = () => {
     name: '',
     block: '',
     unit: '',
+    sector: '' as string,
     hasSpecialNeeds: false,
     isElderly: false,
     hasLargeCar: false,
@@ -139,6 +140,7 @@ export const ParticipantManagement = () => {
       name: '',
       block: '',
       unit: '',
+      sector: '',
       hasSpecialNeeds: false,
       isElderly: false,
       hasLargeCar: false,
@@ -205,6 +207,7 @@ export const ParticipantManagement = () => {
       const updatedParticipant = {
         ...editingParticipant,
         ...formData,
+        sector: formData.sector ? formData.sector as SectorName : undefined,
         preferredFloors: formData.preferredFloors.length > 0 ? formData.preferredFloors : undefined,
         numberOfSpots: numberOfSpots,
         groupId: groupId || undefined
@@ -263,6 +266,7 @@ export const ParticipantManagement = () => {
         id: currentParticipantId,
         buildingId: selectedBuilding?.id || '',
         ...formData,
+        sector: formData.sector ? formData.sector as SectorName : undefined,
         preferredFloors: formData.preferredFloors.length > 0 ? formData.preferredFloors : undefined,
         groupId: groupId || undefined,
         createdAt: new Date(),
@@ -310,6 +314,7 @@ export const ParticipantManagement = () => {
       name: participant.name,
       block: participant.block,
       unit: participant.unit,
+      sector: participant.sector || '',
       hasSpecialNeeds: participant.hasSpecialNeeds,
       isElderly: participant.isElderly || false,
       hasLargeCar: participant.hasLargeCar || false,
@@ -664,14 +669,33 @@ export const ParticipantManagement = () => {
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="unit">Unidade</Label>
-                <Input
-                  id="unit"
-                  value={formData.unit}
-                  onChange={(e) => setFormData({...formData, unit: e.target.value})}
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Unidade</Label>
+                  <Input
+                    id="unit"
+                    value={formData.unit}
+                    onChange={(e) => setFormData({...formData, unit: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sector">Setor</Label>
+                  <Select
+                    value={formData.sector}
+                    onValueChange={(value) => setFormData({...formData, sector: value === 'none' ? '' : value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o setor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem setor</SelectItem>
+                      {AVAILABLE_SECTORS.map(sector => (
+                        <SelectItem key={sector} value={sector}>{sector}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
