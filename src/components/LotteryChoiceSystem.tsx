@@ -416,6 +416,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     }
                     return p;
                 });
+                console.log('🟡 Publicando vaga pendente no mapa:', spot.number, 'para', currentParticipant.name);
                 saveChoiceLotteryLive(
                     selectedBuilding.id,
                     selectedBuilding.name || 'Condomínio',
@@ -424,7 +425,13 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     currentTurnIndex,
                     'in_progress',
                     selectedBuilding.company
-                );
+                ).then(result => {
+                    if (!result.success) {
+                        console.error('❌ Falha ao publicar vaga pendente:', result.error);
+                    } else {
+                        console.log('✅ Vaga pendente publicada com sucesso');
+                    }
+                });
             }
         }
     };
