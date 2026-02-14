@@ -343,7 +343,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                         <div
                           className={cn(
                             'flex items-center justify-center rounded-full border-2 text-white font-bold shadow-lg transition-transform',
-                            'w-5 h-5 text-[7px] md:w-6 md:h-6 md:text-[8px]',
+                            'w-5 h-5 text-[7px] md:w-7 md:h-7 md:text-[9px]',
                             'group-hover:scale-125 group-hover:z-10',
                             getMarkerColor(status),
                             status === 'chosen' && 'ring-2 ring-red-300',
