@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { MapPin, Maximize2, Minimize2, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { database } from '@/config/firebase';
 import { ref, onValue } from 'firebase/database';
@@ -323,15 +323,15 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
               className="w-full h-auto block"
               draggable={false}
             />
-            <TooltipProvider delayDuration={0}>
+            <>
               {Object.entries(currentPlan.markers || {}).map(([spotId, pos]) => {
                 const spot = parkingSpots.find((s: any) => s.id === spotId);
                 if (!spot) return null;
                 const status = getSpotStatus(spotId);
                 const labels = getSpotLabels(spot);
                 return (
-                  <Tooltip key={spotId}>
-                    <TooltipTrigger asChild>
+                  <Popover key={spotId}>
+                    <PopoverTrigger asChild>
                       <div
                         className="absolute flex flex-col items-center cursor-pointer group"
                         style={{
@@ -343,7 +343,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                         <div
                           className={cn(
                             'flex items-center justify-center rounded-full border-2 text-white font-bold shadow-lg transition-transform',
-                            'w-5 h-5 text-[7px] md:w-7 md:h-7 md:text-[9px]',
+                            'w-5 h-5 text-[7px] md:w-9 md:h-9 md:text-[11px]',
                             'group-hover:scale-125 group-hover:z-10',
                             getMarkerColor(status),
                             status === 'chosen' && 'ring-2 ring-red-300',
@@ -353,10 +353,11 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                           {spot.number}
                         </div>
                       </div>
-                    </TooltipTrigger>
-                    <TooltipContent
+                    </PopoverTrigger>
+                    <PopoverContent
                       side="top"
-                      className="bg-gray-900 text-white border-gray-700 px-3 py-2 max-w-[220px] z-[300]"
+                      className="bg-gray-900 text-white border-gray-700 px-3 py-2 max-w-[220px] z-[300] w-auto"
+                      sideOffset={5}
                     >
                       <p className="font-bold text-xs mb-1">Vaga {spot.number}</p>
                       <div className="flex flex-wrap gap-1">
@@ -397,11 +398,11 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                       <p className="text-[9px] text-gray-400 mt-1">
                         {status === 'chosen' ? '🔴 Escolhida' : status === 'choosing' ? '🟡 Escolhendo agora' : '🟢 Disponível'}
                       </p>
-                    </TooltipContent>
-                  </Tooltip>
+                    </PopoverContent>
+                  </Popover>
                 );
               })}
-            </TooltipProvider>
+            </>
           </div>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
