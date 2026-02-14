@@ -122,16 +122,22 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
     if (spot.isCovered) labels.push('Coberta');
     if (spot.isUncovered) labels.push('Descoberta');
     if (!hasCoverage) labels.push('Comum');
-    // Tipo
+    // Tipo - check both formats (full 'Vaga X' and short 'x')
     const types: string[] = spot.type || [];
-    if (types.includes('presa')) labels.push('Presa');
-    if (types.includes('livre')) labels.push('Livre');
-    if (types.includes('idoso')) labels.push('Idoso');
-    if (types.includes('pcd')) labels.push('PCD');
-    if (types.includes('moto')) labels.push('Moto');
+    if (types.includes('Vaga Presa') || types.includes('presa')) labels.push('Presa');
+    if (types.includes('Vaga Livre') || types.includes('livre')) labels.push('Livre');
+    if (types.includes('Vaga Idoso') || types.includes('idoso')) labels.push('Idoso');
+    if (types.includes('Vaga PcD') || types.includes('pcd')) labels.push('PCD');
+    if (types.includes('Vaga Motocicleta') || types.includes('moto')) labels.push('Moto');
+    if (types.includes('Vaga Pequena')) labels.push('Pequena');
+    if (types.includes('Vaga Grande')) labels.push('Grande');
     // Tamanho
     const sizeMap: Record<string, string> = { P: 'Pequena', M: 'Média', G: 'Grande', XG: 'Extra Grande' };
-    if (spot.size && sizeMap[spot.size]) labels.push(sizeMap[spot.size]);
+    if (spot.size && sizeMap[spot.size]) {
+      // Avoid duplicate if already added from type array
+      const sizeLabel = sizeMap[spot.size];
+      if (!labels.includes(sizeLabel)) labels.push(sizeLabel);
+    }
     return labels;
   };
 
@@ -337,7 +343,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                         <div
                           className={cn(
                             'flex items-center justify-center rounded-full border-2 text-white font-bold shadow-lg transition-transform',
-                            'w-7 h-7 text-[9px] md:w-9 md:h-9 md:text-[11px]',
+                            'w-5 h-5 text-[7px] md:w-6 md:h-6 md:text-[8px]',
                             'group-hover:scale-125 group-hover:z-10',
                             getMarkerColor(status),
                             status === 'chosen' && 'ring-2 ring-red-300',

@@ -402,6 +402,31 @@ export default function LotteryChoiceSystem(): JSX.Element {
     // ============================================================================
     const handleSelectSpot = (spot: ParkingSpot): void => {
         setPendingSpot(spot);
+
+        // 📡 Publicar vaga pendente em tempo real para que o mapa mostre amarelo ("escolhendo")
+        if (selectedBuilding?.id) {
+            const currentParticipant = drawnOrder[currentTurnIndex];
+            if (currentParticipant) {
+                const tempDrawnOrder = drawnOrder.map((p, idx) => {
+                    if (idx === currentTurnIndex) {
+                        return {
+                            ...p,
+                            allocatedSpots: [...p.allocatedSpots, spot],
+                        };
+                    }
+                    return p;
+                });
+                saveChoiceLotteryLive(
+                    selectedBuilding.id,
+                    selectedBuilding.name || 'Condomínio',
+                    'Sorteio de Escolha',
+                    tempDrawnOrder,
+                    currentTurnIndex,
+                    'in_progress',
+                    selectedBuilding.company
+                );
+            }
+        }
     };
 
     // ============================================================================
@@ -959,6 +984,19 @@ export default function LotteryChoiceSystem(): JSX.Element {
     // ============================================================================
     const handleCancelSpotSelection = (): void => {
         setPendingSpot(null);
+
+        // 📡 Reverter o status no Firebase (remover vaga pendente do mapa)
+        if (selectedBuilding?.id) {
+            saveChoiceLotteryLive(
+                selectedBuilding.id,
+                selectedBuilding.name || 'Condomínio',
+                'Sorteio de Escolha',
+                drawnOrder,
+                currentTurnIndex,
+                'in_progress',
+                selectedBuilding.company
+            );
+        }
     };
 
     // ============================================================================
