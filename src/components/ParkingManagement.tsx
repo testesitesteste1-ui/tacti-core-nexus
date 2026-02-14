@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Edit, Trash2, Car, MapPin, Building, Upload } from 'lucide-react';
-import { ParkingSpot, SpotType, SpotStatus } from '@/types/lottery';
+import { ParkingSpot, SpotType, SpotStatus, AVAILABLE_SECTORS, SectorName } from '@/types/lottery';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,7 @@ export const ParkingManagement = () => {
   const [formData, setFormData] = useState({
     number: '',
     floor: '1° SubSolo' as 'Piso Único' | 'Térreo' | '1° SubSolo' | '2° SubSolo' | '3° SubSolo' | '4° SubSolo' | '5° SubSolo' | 'Ed. Garagem (1° Andar)' | 'Ed. Garagem (2° Andar)' | 'Ed. Garagem (3° Andar)' | 'Ed. Garagem (4° Andar)' | 'Ed. Garagem (5° Andar)',
+    sector: '' as string,
     type: ['Vaga Comum'] as SpotType[],
     size: 'M' as 'P' | 'M' | 'G' | 'XG',
     status: 'available' as SpotStatus,
@@ -70,6 +71,7 @@ export const ParkingManagement = () => {
     setFormData({
       number: '',
       floor: 'Piso Único',
+      sector: '',
       type: ['Vaga Comum'],
       size: 'M',
       status: 'available',
@@ -115,7 +117,8 @@ export const ParkingManagement = () => {
         ...editingSpot,
         number: formData.number,
         floor: formData.floor,
-        type: finalType,  // ✅ Usar finalType
+        sector: formData.sector ? formData.sector as SectorName : undefined,
+        type: finalType,
         size: formData.size,
         status: formData.status,
         isCovered: formData.isCovered,
@@ -167,7 +170,8 @@ export const ParkingManagement = () => {
         buildingId: selectedBuilding?.id || '',
         number: formData.number,
         floor: formData.floor,
-        type: finalType,  // ✅ Usar finalType
+        sector: formData.sector ? formData.sector as SectorName : undefined,
+        type: finalType,
         size: formData.size,
         status: formData.status,
         isCovered: formData.isCovered,
@@ -216,6 +220,7 @@ export const ParkingManagement = () => {
     setFormData({
       number: spot.number,
       floor: spot.floor,
+      sector: spot.sector || '',
       type: cleanedType,
       size: spot.size,
       status: spot.status,
@@ -668,6 +673,24 @@ export const ParkingManagement = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sector">Setor</Label>
+                  <Select
+                    value={formData.sector}
+                    onValueChange={(value) => setFormData({ ...formData, sector: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o setor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem setor</SelectItem>
+                      {AVAILABLE_SECTORS.map(sector => (
+                        <SelectItem key={sector} value={sector}>{sector}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-4">
