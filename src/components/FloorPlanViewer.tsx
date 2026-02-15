@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { MapPin, ZoomIn, ZoomOut, RotateCcw, Hand } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { database } from '@/config/firebase';
 import { ref, onValue } from 'firebase/database';
@@ -22,12 +22,14 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
   const [floorPlans, setFloorPlans] = useState<Record<string, FloorPlanData>>({});
   const [selectedFloor, setSelectedFloor] = useState<string>('');
   const [zoom, setZoom] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [parkingSpots, setParkingSpots] = useState<any[]>([]);
+  const [markerSize, setMarkerSize] = useState(36);
 
-  // Load floor plans
   useEffect(() => {
     if (!buildingId) return;
-
     const plansRef = ref(database, `buildings/${buildingId}/floorPlans`);
     const unsub = onValue(plansRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -39,25 +41,29 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
         }
       }
     });
-
     return () => unsub();
   }, [buildingId]);
 
-  // Load parking spots for status
   useEffect(() => {
     if (!buildingId) return;
-
     const spotsRef = ref(database, `buildings/${buildingId}/parkingSpots`);
     const unsub = onValue(spotsRef, (snapshot) => {
       if (snapshot.exists()) {
         setParkingSpots(Object.values(snapshot.val()));
       }
     });
-
     return () => unsub();
   }, [buildingId]);
 
-  // Determine which spots have been chosen in the live lottery
+  useEffect(() => {
+    if (!buildingId) return;
+    const sizeRef = ref(database, `buildings/${buildingId}/markerSize`);
+    const unsub = onValue(sizeRef, (snapshot) => {
+      if (snapshot.exists()) setMarkerSize(snapshot.val());
+    });
+    return () => unsub();
+  }, [buildingId]);
+
   const chosenSpotNumbers = useMemo(() => {
     if (!liveData) return new Set<string>();
     const chosen = new Set<string>();
@@ -77,10 +83,7 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
   const getSpotStatus = (spotId: string): 'available' | 'occupied' | 'chosen' | 'reserved' => {
     const spot = parkingSpots.find((s: any) => s.id === spotId);
     if (!spot) return 'available';
-
-    // Check if chosen in live lottery
     if (chosenSpotNumbers.has(spot.number)) return 'chosen';
-
     return spot.status || 'available';
   };
 
@@ -93,13 +96,39 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
     }
   };
 
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(z => Math.max(0.3, Math.min(5, z + delta)));
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    setIsPanning(true);
+    setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+  }, [panOffset]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isPanning) return;
+    setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+  }, [isPanning, panStart]);
+
+  const handlePointerUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  const handleResetView = useCallback(() => {
+    setZoom(1);
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
+
   if (availableFloors.length === 0) return null;
 
   const chosenCount = Object.keys(currentPlan?.markers || {}).filter(
     id => getSpotStatus(id) === 'chosen'
   ).length;
-
   const totalMarkers = Object.keys(currentPlan?.markers || {}).length;
+  const fontSize = Math.max(7, Math.round(markerSize * 0.3));
 
   return (
     <Card className="mt-6">
@@ -123,16 +152,21 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
           </Select>
 
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}>
               <ZoomOut className="h-4 w-4" />
             </Button>
             <span className="text-xs text-muted-foreground w-10 text-center">{Math.round(zoom * 100)}%</span>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.min(3, z + 0.1))}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.min(5, z + 0.1))}>
               <ZoomIn className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(1)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleResetView}>
               <RotateCcw className="h-3 w-3" />
             </Button>
+          </div>
+
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Hand className="h-3 w-3" />
+            <span>Arraste para mover</span>
           </div>
 
           {liveData && (
@@ -144,10 +178,19 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
         </div>
 
         {currentPlan?.imageUrl ? (
-          <div className="overflow-auto max-h-[60vh] rounded-lg border">
+          <div
+            className={`overflow-hidden max-h-[60vh] rounded-lg border ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+            onWheel={handleWheel}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+          >
             <div
               className="relative select-none"
-              style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
+              style={{
+                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+                transformOrigin: 'top left',
+              }}
             >
               <img
                 src={currentPlan.imageUrl}
@@ -164,7 +207,6 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
                   <div
                     key={spotId}
                     className={`absolute flex items-center justify-center rounded-full border-2 shadow-lg text-white font-bold
-                      w-7 h-7 text-[9px] md:w-9 md:h-9 md:text-[11px]
                       ${getMarkerColor(status)}
                       ${status === 'chosen' ? 'ring-2 ring-red-300 animate-pulse' : ''}
                     `}
@@ -172,6 +214,9 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
                       left: `${pos.x}%`,
                       top: `${pos.y}%`,
                       transform: 'translate(-50%, -50%)',
+                      width: `${markerSize}px`,
+                      height: `${markerSize}px`,
+                      fontSize: `${fontSize}px`,
                     }}
                     title={`Vaga ${spot.number} - ${status === 'chosen' ? 'Escolhida' : status === 'available' ? 'Disponível' : 'Ocupada'}`}
                   >

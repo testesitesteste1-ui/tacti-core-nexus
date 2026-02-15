@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { MapPin, Maximize2, Minimize2, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { MapPin, Maximize2, Minimize2, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { database } from '@/config/firebase';
 import { ref, onValue } from 'firebase/database';
 import { ChoiceLotteryLiveData } from '@/utils/publicResults';
@@ -32,6 +32,46 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
   const [parkingSpots, setParkingSpots] = useState<any[]>([]);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [markerSize, setMarkerSize] = useState(36);
+
+  // Load marker size
+  useEffect(() => {
+    if (!buildingId) return;
+    const sizeRef = ref(database, `buildings/${buildingId}/markerSize`);
+    const unsub = onValue(sizeRef, (snapshot) => {
+      if (snapshot.exists()) setMarkerSize(snapshot.val());
+    });
+    return () => unsub();
+  }, [buildingId]);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(z => Math.max(0.3, Math.min(5, z + delta)));
+  }, []);
+
+  const handlePanDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    setIsPanning(true);
+    setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+  }, [panOffset]);
+
+  const handlePanMove = useCallback((e: React.PointerEvent) => {
+    if (!isPanning) return;
+    setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+  }, [isPanning, panStart]);
+
+  const handlePanUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  const handleResetView = useCallback(() => {
+    setZoom(1);
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
 
   useEffect(() => {
     if (!buildingId) return;
@@ -284,12 +324,15 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
             </Select>
           )}
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}>
               <ZoomOut className="h-3.5 w-3.5" />
             </Button>
             <span className="text-[10px] text-muted-foreground w-8 text-center">{Math.round(zoom * 100)}%</span>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.min(3, z + 0.1))}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.min(5, z + 0.1))}>
               <ZoomIn className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleResetView}>
+              <RotateCcw className="h-3 w-3" />
             </Button>
           </div>
           {onToggleFullscreen && (
@@ -301,11 +344,20 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
       </div>
 
       {/* Map */}
-      <div className="flex-1 overflow-auto bg-gray-100">
+      <div
+        className={cn("flex-1 overflow-hidden bg-gray-100", isPanning ? "cursor-grabbing" : "cursor-grab")}
+        onWheel={handleWheel}
+        onPointerDown={handlePanDown}
+        onPointerMove={handlePanMove}
+        onPointerUp={handlePanUp}
+      >
         {currentPlan?.imageUrl ? (
           <div
             className="relative select-none"
-            style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
+            style={{
+              transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+              transformOrigin: 'top left',
+            }}
           >
             <img
               src={currentPlan.imageUrl}
@@ -333,12 +385,16 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                         <div
                           className={cn(
                             'flex items-center justify-center rounded-full border-2 text-white font-bold shadow-lg transition-transform',
-                            'w-5 h-5 text-[7px] md:w-9 md:h-9 md:text-[11px]',
                             'group-hover:scale-125 group-hover:z-10',
                             getMarkerColor(status),
                             status === 'chosen' && 'ring-2 ring-red-300',
                             status === 'choosing' && 'ring-2 ring-yellow-300 scale-110',
                           )}
+                          style={{
+                            width: `${markerSize}px`,
+                            height: `${markerSize}px`,
+                            fontSize: `${Math.max(7, Math.round(markerSize * 0.3))}px`,
+                          }}
                         >
                           {spot.number}
                         </div>

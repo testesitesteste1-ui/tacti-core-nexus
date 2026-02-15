@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Building, Upload, Save, Trash2, Move, ZoomIn, ZoomOut, RotateCcw, Eye, Edit3, MapPin, Car, Info, Image as ImageIcon, Loader2, GripVertical, CheckCircle2, Circle, Search } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Building, Upload, Save, Trash2, Move, ZoomIn, ZoomOut, RotateCcw, Eye, Edit3, MapPin, Car, Info, Image as ImageIcon, Loader2, GripVertical, CheckCircle2, Circle, Search, Hand } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { ParkingSpot } from '@/types/lottery';
 import { cn } from '@/lib/utils';
@@ -30,12 +31,13 @@ interface MarkerProps {
   isEditing: boolean;
   isDragging: boolean;
   isHighlighted: boolean;
+  markerSize: number;
   onDragStart: (spotId: string, e: React.PointerEvent) => void;
   onRemove?: (spotId: string) => void;
   status?: 'available' | 'occupied' | 'reserved' | 'chosen';
 }
 
-const SpotMarker: React.FC<MarkerProps> = ({ spot, position, isEditing, isDragging, isHighlighted, onDragStart, onRemove, status }) => {
+const SpotMarker: React.FC<MarkerProps> = ({ spot, position, isEditing, isDragging, isHighlighted, markerSize, onDragStart, onRemove, status }) => {
   const spotStatus = status || spot.status;
 
   const getColor = () => {
@@ -50,15 +52,17 @@ const SpotMarker: React.FC<MarkerProps> = ({ spot, position, isEditing, isDraggi
 
   const types = Array.isArray(spot.type) ? spot.type : [spot.type];
 
+  // Dynamic size based on markerSize (default 36px = size 1.0)
+  const baseSize = markerSize;
+  const fontSize = Math.max(7, Math.round(baseSize * 0.3));
+
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
           <div
             className={cn(
-              'absolute flex items-center justify-center rounded-full border-2 shadow-lg transition-all select-none',
-              'w-7 h-7 text-[9px] font-bold',
-              'md:w-9 md:h-9 md:text-[11px]',
+              'absolute flex items-center justify-center rounded-full border-2 shadow-lg transition-all select-none font-bold text-white',
               getColor(),
               isEditing && 'cursor-grab hover:scale-110 hover:shadow-xl',
               isDragging && 'cursor-grabbing scale-[1.35] z-50 opacity-90 ring-2 ring-white/60',
@@ -69,10 +73,14 @@ const SpotMarker: React.FC<MarkerProps> = ({ spot, position, isEditing, isDraggi
               left: `${position.x}%`,
               top: `${position.y}%`,
               transform: 'translate(-50%, -50%)',
+              width: `${baseSize}px`,
+              height: `${baseSize}px`,
+              fontSize: `${fontSize}px`,
             }}
             onPointerDown={(e) => {
               if (isEditing) {
                 e.preventDefault();
+                e.stopPropagation();
                 onDragStart(spot.id, e);
               }
             }}
@@ -112,6 +120,10 @@ export const FloorPlanEditor: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [draggingSpotId, setDraggingSpotId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [markerSize, setMarkerSize] = useState(36);
   const [unplacedFilter, setUnplacedFilter] = useState('');
   const [highlightedSpotId, setHighlightedSpotId] = useState<string | null>(null);
   const [placedFilter, setPlacedFilter] = useState('');
@@ -131,6 +143,7 @@ export const FloorPlanEditor: React.FC = () => {
   });
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapWrapperRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentPlan = floorPlans[selectedFloor];
@@ -150,6 +163,18 @@ export const FloorPlanEditor: React.FC = () => {
         setFloorPlans(snapshot.val());
       } else {
         setFloorPlans({});
+      }
+    });
+    return () => unsub();
+  }, [selectedBuilding?.id]);
+
+  // Load marker size from Firebase
+  useEffect(() => {
+    if (!selectedBuilding?.id) return;
+    const sizeRef = dbRef(database, `buildings/${selectedBuilding.id}/markerSize`);
+    const unsub = onValue(sizeRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setMarkerSize(snapshot.val());
       }
     });
     return () => unsub();
@@ -231,6 +256,52 @@ export const FloorPlanEditor: React.FC = () => {
   const handlePointerUp = useCallback(() => {
     setDraggingSpotId(null);
   }, []);
+
+  // Wheel zoom handler
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(z => Math.max(0.3, Math.min(5, z + delta)));
+  }, []);
+
+  // Pan handlers (right-click or middle-click drag, or Space+drag)
+  const handleMapPointerDown = useCallback((e: React.PointerEvent) => {
+    // If dragging a spot marker, don't pan
+    if (draggingSpotId) return;
+    // Pan with middle click, right click, or any click when not editing
+    if (e.button === 1 || e.button === 2 || !isEditing) {
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    }
+  }, [draggingSpotId, isEditing, panOffset]);
+
+  const handleMapPointerMovePan = useCallback((e: React.PointerEvent) => {
+    if (isPanning) {
+      setPanOffset({
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y,
+      });
+    }
+  }, [isPanning, panStart]);
+
+  const handleMapPointerUpPan = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  const handleResetView = useCallback(() => {
+    setZoom(1);
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
+
+  // Save marker size to Firebase
+  const handleMarkerSizeChange = useCallback((value: number[]) => {
+    const size = value[0];
+    setMarkerSize(size);
+    if (selectedBuilding?.id) {
+      set(dbRef(database, `buildings/${selectedBuilding.id}/markerSize`), size);
+    }
+  }, [selectedBuilding?.id]);
 
   const handlePlaceSpot = (spot: ParkingSpot) => {
     if (!currentPlan?.imageUrl) {
@@ -462,36 +533,62 @@ export const FloorPlanEditor: React.FC = () => {
                 )}
               </div>
 
-              {/* Zoom Controls + Progress */}
+              {/* Zoom Controls + Marker Size + Progress */}
               {currentPlan?.imageUrl && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}>
-                      <ZoomOut className="h-4 w-4" />
-                    </Button>
-                    <span className="text-sm text-muted-foreground w-14 text-center font-mono">{Math.round(zoom * 100)}%</span>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.min(3, z + 0.1))}>
-                      <ZoomIn className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(1)}>
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}>
+                        <ZoomOut className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm text-muted-foreground w-14 text-center font-mono">{Math.round(zoom * 100)}%</span>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.min(5, z + 0.1))}>
+                        <ZoomIn className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleResetView} title="Resetar visão">
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                      <div className="h-5 w-px bg-border mx-1" />
+                      <Hand className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Scroll = zoom • Arraste = mover</span>
+                    </div>
+
+                    {isEditing && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              progressPercent === 100 ? "bg-green-500" : "bg-primary"
+                            )}
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                        <span className="text-muted-foreground font-medium">
+                          {totalPlaced}/{totalSpots}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
+                  {/* Marker Size Slider */}
                   {isEditing && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="flex items-center gap-3 px-1">
+                      <div className="flex items-center gap-2 min-w-fit">
                         <div
-                          className={cn(
-                            "h-full rounded-full transition-all",
-                            progressPercent === 100 ? "bg-green-500" : "bg-primary"
-                          )}
-                          style={{ width: `${progressPercent}%` }}
+                          className="rounded-full bg-green-500 border-2 border-green-700 flex-shrink-0"
+                          style={{ width: `${markerSize}px`, height: `${markerSize}px` }}
                         />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Tamanho: {markerSize}px</span>
                       </div>
-                      <span className="text-muted-foreground font-medium">
-                        {totalPlaced}/{totalSpots}
-                      </span>
+                      <Slider
+                        value={[markerSize]}
+                        onValueChange={handleMarkerSizeChange}
+                        min={16}
+                        max={60}
+                        step={2}
+                        className="w-40"
+                      />
                     </div>
                   )}
                 </div>
@@ -503,16 +600,36 @@ export const FloorPlanEditor: React.FC = () => {
           <Card className="shadow-soft overflow-hidden">
             <CardContent className="p-0">
               {currentPlan?.imageUrl ? (
-                <div className="overflow-auto max-h-[70vh] bg-muted/30">
+                <div
+                  ref={mapWrapperRef}
+                  className={cn(
+                    "overflow-hidden max-h-[70vh] bg-muted/30",
+                    isPanning && "cursor-grabbing",
+                    !isPanning && !isEditing && "cursor-grab",
+                  )}
+                  onWheel={handleWheel}
+                  onPointerDown={handleMapPointerDown}
+                  onPointerMove={(e) => {
+                    handleMapPointerMovePan(e);
+                    if (!isPanning) handlePointerMove(e);
+                  }}
+                  onPointerUp={(e) => {
+                    handleMapPointerUpPan();
+                    handlePointerUp();
+                  }}
+                  onContextMenu={(e) => e.preventDefault()}
+                >
                   <div
                     ref={mapContainerRef}
                     className={cn(
                       "relative select-none",
                       isEditing && "ring-2 ring-primary/20 ring-inset"
                     )}
-                    style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', minHeight: 400 }}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={handlePointerUp}
+                    style={{
+                      transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+                      transformOrigin: 'top left',
+                      minHeight: 400,
+                    }}
                   >
                     <img
                       src={currentPlan.imageUrl}
@@ -533,6 +650,7 @@ export const FloorPlanEditor: React.FC = () => {
                           isEditing={isEditing}
                           isDragging={draggingSpotId === spotId}
                           isHighlighted={highlightedSpotId === spotId}
+                          markerSize={markerSize}
                           onDragStart={handleDragStart}
                           onRemove={handleRemoveMarker}
                         />
