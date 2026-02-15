@@ -1251,6 +1251,7 @@ export const ParticipantManagement = () => {
                   <TableRow>
                     <TableHead className="min-w-[200px]">Participante</TableHead>
                     <TableHead className="min-w-[120px]">Bloco/Unidade</TableHead>
+                    <TableHead className="min-w-[80px]">Setor</TableHead>
                     <TableHead className="min-w-[100px]">Grupo</TableHead>
                     <TableHead className="min-w-[180px]">Prioridades</TableHead>
                     <TableHead className="text-right min-w-[100px]">Ações</TableHead>
@@ -1286,6 +1287,13 @@ export const ParticipantManagement = () => {
                             }
                           })()}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {participant.sector ? (
+                          <Badge variant="outline" className="text-xs">{participant.sector}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {participant.groupId ? (

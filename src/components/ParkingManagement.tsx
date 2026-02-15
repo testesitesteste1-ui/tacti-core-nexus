@@ -1147,6 +1147,7 @@ export const ParkingManagement = () => {
                     <TableHead className="min-w-[120px]">Vaga</TableHead>
                     <TableHead className="min-w-[130px]">Localização</TableHead>
                     <TableHead className="min-w-[100px]">Tipo</TableHead>
+                    <TableHead className="min-w-[80px]">Setor</TableHead>
                     <TableHead className="min-w-[150px]">Grupo</TableHead>
                     <TableHead className="min-w-[100px]">Status</TableHead>
                     <TableHead className="text-right min-w-[100px]">Ações</TableHead>
@@ -1184,6 +1185,13 @@ export const ParkingManagement = () => {
                             ))}
                           {getCoverageBadge(spot)}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {spot.sector ? (
+                          <Badge variant="outline" className="text-xs">{spot.sector}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {spot.groupId ? (
