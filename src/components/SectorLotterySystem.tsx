@@ -46,13 +46,24 @@ export const SectorLotterySystem = () => {
   const [selectedPcdSpot, setSelectedPcdSpot] = useState<string | null>(null);
   const [pcdSelectionResolve, setPcdSelectionResolve] = useState<((spotId: string | null) => void) | null>(null);
 
+  // Participantes e vagas do condomínio selecionado
+  const buildingParticipants = useMemo(() =>
+    participants.filter(p => p.buildingId === selectedBuilding?.id),
+    [participants, selectedBuilding?.id]
+  );
+
+  const buildingSpots = useMemo(() =>
+    parkingSpots.filter(s => s.buildingId === selectedBuilding?.id && s.status === 'available'),
+    [parkingSpots, selectedBuilding?.id]
+  );
+
   // Setores em uso no condomínio (derivados dos dados reais)
   const usedSectors = useMemo(() => {
     const sectors = new Set<string>();
     buildingParticipants.forEach(p => { if (p.sector) sectors.add(p.sector); });
     buildingSpots.forEach(s => { if (s.sector) sectors.add(s.sector); });
     return Array.from(sectors).sort();
-  }, [participants, parkingSpots, selectedBuilding?.id]);
+  }, [buildingParticipants, buildingSpots]);
 
   // Configuração de mapeamento de setores (inicializar com setores em uso)
   const [config, setConfig] = useState<SectorLotteryConfig>({
@@ -67,7 +78,6 @@ export const SectorLotterySystem = () => {
         const newMapping: Record<string, string[]> = { ...prev.sectorMapping };
         usedSectors.forEach(sector => {
           if (!newMapping[sector]) {
-            // Padrão: o próprio setor primeiro, depois os outros na ordem
             newMapping[sector] = [sector, ...usedSectors.filter(s => s !== sector)];
           }
         });
@@ -75,17 +85,6 @@ export const SectorLotterySystem = () => {
       });
     }
   }, [usedSectors]);
-
-  // Participantes e vagas do condomínio selecionado
-  const buildingParticipants = useMemo(() =>
-    participants.filter(p => p.buildingId === selectedBuilding?.id),
-    [participants, selectedBuilding?.id]
-  );
-
-  const buildingSpots = useMemo(() =>
-    parkingSpots.filter(s => s.buildingId === selectedBuilding?.id && s.status === 'available'),
-    [parkingSpots, selectedBuilding?.id]
-  );
 
   // Extrair setor da vaga (usa campo sector, fallback para número)
   const getSpotSector = (spot: ParkingSpot): string | null => {
