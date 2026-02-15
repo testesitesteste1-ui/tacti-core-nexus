@@ -117,11 +117,9 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
 
   const getSpotLabels = (spot: any): string[] => {
     const labels: string[] = [];
-    // Cobertura (badge rules: Comum só se não tem Coberta/Descoberta)
-    const hasCoverage = spot.isCovered || spot.isUncovered;
+    // Cobertura (sem "Comum" — removido por decisão do usuário)
     if (spot.isCovered) labels.push('Coberta');
     if (spot.isUncovered) labels.push('Descoberta');
-    if (!hasCoverage) labels.push('Comum');
     // Tipo - check both formats (full 'Vaga X' and short 'x')
     const types: string[] = spot.type || [];
     if (types.includes('Vaga Presa') || types.includes('presa')) labels.push('Presa');
@@ -129,15 +127,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
     if (types.includes('Vaga Idoso') || types.includes('idoso')) labels.push('Idoso');
     if (types.includes('Vaga PcD') || types.includes('pcd')) labels.push('PCD');
     if (types.includes('Vaga Motocicleta') || types.includes('moto')) labels.push('Moto');
-    if (types.includes('Vaga Pequena')) labels.push('Pequena');
-    if (types.includes('Vaga Grande')) labels.push('Grande');
-    // Tamanho
-    const sizeMap: Record<string, string> = { P: 'Pequena', M: 'Média', G: 'Grande', XG: 'Extra Grande' };
-    if (spot.size && sizeMap[spot.size]) {
-      // Avoid duplicate if already added from type array
-      const sizeLabel = sizeMap[spot.size];
-      if (!labels.includes(sizeLabel)) labels.push(sizeLabel);
-    }
+    // Tamanho ocultado por decisão do usuário
     return labels;
   };
 
