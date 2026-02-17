@@ -566,12 +566,22 @@ export default function LotteryChoiceSystem(): JSX.Element {
                     );
                 }
 
-                // Verificar se todos completaram (incluindo skipped)
+                // Verificar se todos completaram (incluindo skipped) OU se acabaram as vagas
                 const allDone = updatedOrder.every((p: DrawnParticipant) => 
                     p.status === 'completed' || p.status === 'skipped'
                 );
+                const noSpotsLeft = updatedAvailable.length === 0;
 
-                if (allDone) {
+                if (allDone || noSpotsLeft) {
+                    // Se acabaram as vagas, marcar os que ainda estão esperando como skipped
+                    if (noSpotsLeft && !allDone) {
+                        updatedOrder.forEach((p, idx) => {
+                            if (p.status === 'waiting' || p.status === 'choosing') {
+                                updatedOrder[idx] = { ...p, status: 'skipped' };
+                            }
+                        });
+                        setDrawnOrder(updatedOrder);
+                    }
                     handleFinalizeSession(updatedOrder, updatedAvailable);
                 } else {
                     toast({
@@ -1011,6 +1021,29 @@ export default function LotteryChoiceSystem(): JSX.Element {
     // ============================================================================
     const handleSelectPartnerSpot = (spot: ParkingSpot): void => {
         setPendingPartnerSpot(spot);
+
+        // 📡 Publicar vaga pendente do parceiro em tempo real (bolinha amarela no mapa)
+        if (selectedBuilding?.id && partnerParticipant) {
+            const tempDrawnOrder = drawnOrder.map((p) => {
+                if (p.id === partnerParticipant.id) {
+                    return {
+                        ...p,
+                        allocatedSpots: [...p.allocatedSpots, spot],
+                    };
+                }
+                return p;
+            });
+            console.log('🟡 Publicando vaga pendente do parceiro no mapa:', spot.number, 'para', partnerParticipant.name);
+            saveChoiceLotteryLive(
+                selectedBuilding.id,
+                selectedBuilding.name || 'Condomínio',
+                'Sorteio de Escolha',
+                tempDrawnOrder,
+                currentTurnIndex,
+                'in_progress',
+                selectedBuilding.company
+            );
+        }
     };
 
     // ============================================================================
@@ -1115,8 +1148,18 @@ export default function LotteryChoiceSystem(): JSX.Element {
                 const allDone = updatedOrder.every((p: DrawnParticipant) => 
                     p.status === 'completed' || p.status === 'skipped'
                 );
+                const noSpotsLeft = updatedAvailable.length === 0;
 
-                if (allDone) {
+                if (allDone || noSpotsLeft) {
+                    // Se acabaram as vagas, marcar os que ainda estão esperando como skipped
+                    if (noSpotsLeft && !allDone) {
+                        updatedOrder.forEach((p, idx) => {
+                            if (p.status === 'waiting' || p.status === 'choosing') {
+                                updatedOrder[idx] = { ...p, status: 'skipped' };
+                            }
+                        });
+                        setDrawnOrder(updatedOrder);
+                    }
                     handleFinalizeSession(updatedOrder, updatedAvailable);
                 }
             } else {
@@ -1151,6 +1194,19 @@ export default function LotteryChoiceSystem(): JSX.Element {
     // ============================================================================
     const handleCancelPartnerSpotSelection = (): void => {
         setPendingPartnerSpot(null);
+
+        // 📡 Reverter o status no Firebase (remover vaga pendente do parceiro do mapa)
+        if (selectedBuilding?.id) {
+            saveChoiceLotteryLive(
+                selectedBuilding.id,
+                selectedBuilding.name || 'Condomínio',
+                'Sorteio de Escolha',
+                drawnOrder,
+                currentTurnIndex,
+                'in_progress',
+                selectedBuilding.company
+            );
+        }
     };
 
     // ============================================================================
