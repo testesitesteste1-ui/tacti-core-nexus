@@ -150,6 +150,8 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
     // During live lottery, liveData is the source of truth
     if (choosingSpotNumbers.has(spot.number)) return 'choosing';
     if (chosenSpotNumbers.has(spot.number)) return 'chosen';
+    // Reserved spots (pre-allocated or manually reserved)
+    if (spot.status === 'reserved') return 'reserved';
     // If liveData exists (active session), don't trust parkingSpots status — it may lag
     if (liveData) return 'available';
     return spot.status || 'available';
@@ -175,6 +177,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
     switch (status) {
       case 'choosing': return 'bg-yellow-400 border-yellow-600 animate-pulse';
       case 'chosen': return 'bg-red-500 border-red-700';
+      case 'reserved': return 'bg-blue-500 border-blue-700';
       case 'occupied': return 'bg-orange-500 border-orange-700';
       default: return 'bg-green-500 border-green-700';
     }
@@ -282,10 +285,14 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
         )}
 
         {/* Legend */}
-        <div className="flex gap-3 items-center justify-center px-3 py-2 border-t bg-gray-50 text-[10px]">
+        <div className="flex gap-3 items-center justify-center px-3 py-2 border-t bg-gray-50 text-[10px] flex-wrap">
           <div className="flex items-center gap-1">
             <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
             <span>Livre</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+            <span>Reservada</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
@@ -442,7 +449,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                         return null;
                       })()}
                       <p className="text-[9px] text-gray-400 mt-1">
-                        {status === 'chosen' ? '🔴 Escolhida' : status === 'choosing' ? '🟡 Escolhendo agora' : '🟢 Disponível'}
+                        {status === 'chosen' ? '🔴 Escolhida' : status === 'choosing' ? '🟡 Escolhendo agora' : status === 'reserved' ? '🔵 Reservada' : '🟢 Disponível'}
                       </p>
                     </PopoverContent>
                   </Popover>
@@ -458,10 +465,14 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
       </div>
 
       {/* Legend */}
-      <div className="flex gap-4 items-center justify-center px-4 py-2.5 border-t bg-white text-xs">
+      <div className="flex gap-4 items-center justify-center px-4 py-2.5 border-t bg-white text-xs flex-wrap">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-full bg-green-500 border border-green-700" />
           <span>Disponível</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-full bg-blue-500 border border-blue-700" />
+          <span>Reservada</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-full bg-red-500 border border-red-700" />

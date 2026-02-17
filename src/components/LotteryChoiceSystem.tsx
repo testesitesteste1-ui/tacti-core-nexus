@@ -1351,6 +1351,19 @@ export default function LotteryChoiceSystem(): JSX.Element {
         setAvailableSpots(updatedAvailableSpots);
         setEditingParticipantDialog(false);
 
+        // 📡 ATUALIZAR EM TEMPO REAL IMEDIATAMENTE
+        if (selectedBuilding?.id) {
+            saveChoiceLotteryLive(
+                selectedBuilding.id,
+                selectedBuilding.name || 'Condomínio',
+                'Sorteio de Escolha',
+                updatedOrder,
+                currentTurnIndex,
+                'in_progress',
+                selectedBuilding.company
+            );
+        }
+
         toast({
             title: "Vaga alterada!",
             description: `Vaga ${spotToReplace.number} trocada por ${newSpotForEdit.number}`,
