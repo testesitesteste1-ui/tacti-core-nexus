@@ -31,12 +31,35 @@ export const SectorLotterySystem = () => {
 
   const { toast } = useToast();
 
+  const buildingId = selectedBuilding?.id || '';
+  const storageKey = `sectorLottery_${buildingId}`;
+
   const [isRunning, setIsRunning] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState('');
-  const [results, setResults] = useState<LotteryResult[]>([]);
-  const [showResults, setShowResults] = useState(false);
+  const [results, setResults] = useState<LotteryResult[]>(() => {
+    if (!buildingId) return [];
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.results || [];
+      }
+    } catch {}
+    return [];
+  });
+  const [showResults, setShowResults] = useState(() => {
+    if (!buildingId) return false;
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return (parsed.results?.length || 0) > 0;
+      }
+    } catch {}
+    return false;
+  });
   const [searchTerm, setSearchTerm] = useState('');
 
   // Estados para escolha manual de PcD
@@ -85,6 +108,16 @@ export const SectorLotterySystem = () => {
       });
     }
   }, [usedSectors]);
+
+  // Persistir resultados no localStorage
+  useEffect(() => {
+    if (!buildingId) return;
+    if (results.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify({ results }));
+    } else {
+      localStorage.removeItem(storageKey);
+    }
+  }, [results, storageKey, buildingId]);
 
   // Extrair setor da vaga (usa campo sector, fallback para número)
   const getSpotSector = (spot: ParkingSpot): string | null => {
