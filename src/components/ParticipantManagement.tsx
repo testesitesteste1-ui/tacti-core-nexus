@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, Edit, Trash2, Users, AlertCircle, User, Upload, FileSpreadsheet, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Users, AlertCircle, User, Upload, FileSpreadsheet, CheckCircle2, XCircle, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { Participant, AVAILABLE_SECTORS, SectorName } from '@/types/lottery';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
@@ -82,6 +82,7 @@ export const ParticipantManagement = () => {
     numberOfSpots: 1,
     preferredFloors: [] as string[],
     linkedParticipantIds: [] as string[],
+    preferredSectors: [] as string[],
   });
 
   // Get unique blocks for filter
@@ -156,6 +157,7 @@ export const ParticipantManagement = () => {
       numberOfSpots: 1,
       preferredFloors: [],
       linkedParticipantIds: [],
+      preferredSectors: [],
     });
     setEditingParticipant(null);
   };
@@ -209,6 +211,7 @@ export const ParticipantManagement = () => {
         ...formData,
         sector: formData.sector ? formData.sector as SectorName : undefined,
         preferredFloors: formData.preferredFloors.length > 0 ? formData.preferredFloors : undefined,
+        preferredSectors: formData.preferredSectors.length > 0 ? formData.preferredSectors as SectorName[] : undefined,
         numberOfSpots: numberOfSpots,
         groupId: groupId || undefined
       };
@@ -268,6 +271,7 @@ export const ParticipantManagement = () => {
         ...formData,
         sector: formData.sector ? formData.sector as SectorName : undefined,
         preferredFloors: formData.preferredFloors.length > 0 ? formData.preferredFloors : undefined,
+        preferredSectors: formData.preferredSectors.length > 0 ? formData.preferredSectors as SectorName[] : undefined,
         groupId: groupId || undefined,
         createdAt: new Date(),
       };
@@ -330,6 +334,7 @@ export const ParticipantManagement = () => {
       numberOfSpots: participant.numberOfSpots || 1,
       preferredFloors: participant.preferredFloors || [],
       linkedParticipantIds: linkedParticipantIds,
+      preferredSectors: (participant.preferredSectors || []) as string[],
     });
     setEditingParticipant(participant);
     setIsDialogOpen(true);
@@ -395,6 +400,12 @@ export const ParticipantManagement = () => {
         ? `Andar: ${participant.preferredFloors[0]}`
         : `Andares: ${participant.preferredFloors.length} selecionados`;
       badges.push({ label: floorsLabel, variant: 'floor' });
+    }
+    if (participant.preferredSectors && participant.preferredSectors.length > 0) {
+      const sectorsLabel = participant.preferredSectors.length <= 2
+        ? `Setores: ${participant.preferredSectors.join(' → ')}`
+        : `Setores: ${participant.preferredSectors.length} em ordem`;
+      badges.push({ label: sectorsLabel, variant: 'default' });
     }
     return badges;
   };
@@ -695,6 +706,99 @@ export const ParticipantManagement = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Preferência de Setores (ordenável) */}
+                <div className="space-y-2 col-span-2">
+                  <Label>Preferência de Setores (ordem de prioridade)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Arraste ou use as setas para ordenar. Clique para adicionar/remover setores.
+                  </p>
+                  <div className="flex gap-4">
+                    {/* Setores disponíveis */}
+                    <div className="flex-1 border rounded-md p-3 bg-muted/30">
+                      <p className="text-xs font-medium mb-2 text-muted-foreground">Setores disponíveis</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {AVAILABLE_SECTORS.filter(s => !formData.preferredSectors.includes(s)).map(sector => (
+                          <Button
+                            key={sector}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-7"
+                            onClick={() => setFormData({
+                              ...formData,
+                              preferredSectors: [...formData.preferredSectors, sector]
+                            })}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> {sector}
+                          </Button>
+                        ))}
+                        {AVAILABLE_SECTORS.filter(s => !formData.preferredSectors.includes(s)).length === 0 && (
+                          <p className="text-xs text-muted-foreground">Todos os setores foram adicionados</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Lista ordenada */}
+                    <div className="flex-1 border rounded-md p-3">
+                      <p className="text-xs font-medium mb-2 text-muted-foreground">Ordem de preferência</p>
+                      {formData.preferredSectors.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          Nenhum setor selecionado
+                        </p>
+                      ) : (
+                        <div className="space-y-1">
+                          {formData.preferredSectors.map((sector, index) => (
+                            <div key={sector} className="flex items-center gap-1 bg-muted/50 rounded px-2 py-1">
+                              <span className="text-xs font-bold text-muted-foreground w-5">{index + 1}°</span>
+                              <span className="text-sm flex-1">{sector}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                disabled={index === 0}
+                                onClick={() => {
+                                  const arr = [...formData.preferredSectors];
+                                  [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
+                                  setFormData({ ...formData, preferredSectors: arr });
+                                }}
+                              >
+                                <ArrowUp className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                disabled={index === formData.preferredSectors.length - 1}
+                                onClick={() => {
+                                  const arr = [...formData.preferredSectors];
+                                  [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
+                                  setFormData({ ...formData, preferredSectors: arr });
+                                }}
+                              >
+                                <ArrowDown className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                onClick={() => setFormData({
+                                  ...formData,
+                                  preferredSectors: formData.preferredSectors.filter(s => s !== sector)
+                                })}
+                              >
+                                <XCircle className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 

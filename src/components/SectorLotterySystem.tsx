@@ -341,7 +341,10 @@ export const SectorLotterySystem = () => {
 
     for (const participant of uniqueParticipants) {
       const participantSector = getParticipantSector(participant);
-      const sectorPriority = participantSector ? (config.sectorMapping[participantSector] || [participantSector, ...usedSectors.filter(s => s !== participantSector)]) : usedSectors;
+      // Usar preferredSectors do participante se disponível, senão fallback para config
+      const sectorPriority = participant.preferredSectors && participant.preferredSectors.length > 0
+        ? [...participant.preferredSectors, ...usedSectors.filter(s => !participant.preferredSectors!.includes(s as any))]
+        : participantSector ? (config.sectorMapping[participantSector] || [participantSector, ...usedSectors.filter(s => s !== participantSector)]) : usedSectors;
 
       console.log(`   👤 ${participant.name} (Bloco ${participant.block}) - Prioridade setores: ${sectorPriority.join(' → ')}`);
       
@@ -469,7 +472,10 @@ export const SectorLotterySystem = () => {
     for (const participant of doubleParticipants) {
       const numberOfSpots = Math.max(2, participant.numberOfSpots || 2);
       const participantSector = getParticipantSector(participant);
-      const sectorPriority = participantSector ? (config.sectorMapping[participantSector] || [participantSector, ...usedSectors.filter(s => s !== participantSector)]) : usedSectors;
+      // Usar preferredSectors do participante se disponível
+      const sectorPriority = participant.preferredSectors && participant.preferredSectors.length > 0
+        ? [...participant.preferredSectors, ...usedSectors.filter(s => !participant.preferredSectors!.includes(s as any))]
+        : participantSector ? (config.sectorMapping[participantSector] || [participantSector, ...usedSectors.filter(s => s !== participantSector)]) : usedSectors;
 
       // ✅ NOVO: Determinar preferência estrita de coberta/descoberta
       const wantsCovered = participant.prefersCovered && !participant.prefersUncovered;
