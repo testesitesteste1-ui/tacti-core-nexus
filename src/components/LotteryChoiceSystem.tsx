@@ -1028,6 +1028,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
                 if (p.id === partnerParticipant.id) {
                     return {
                         ...p,
+                        status: 'choosing' as const,
                         allocatedSpots: [...p.allocatedSpots, spot],
                     };
                 }
