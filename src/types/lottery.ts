@@ -37,6 +37,7 @@ export interface Participant {
   prefersUnlinkedSpot?: boolean; // Preferência por vaga livre (rodízio)
   prefersSmallSpot?: boolean; // Preferência por vaga pequena
   preferredFloors?: string[]; // Preferência por andares específicos (múltipla escolha)
+  preferredSectors?: SectorName[]; // Preferência de setores em ordem de prioridade
   createdAt: Date;
   priority?: 'special-needs' | 'elderly' | 'up-to-date' | 'normal';
 }
