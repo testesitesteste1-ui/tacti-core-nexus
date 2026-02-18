@@ -159,27 +159,46 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
 
   const getSpotLabels = (spot: any): string[] => {
     const labels: string[] = [];
-    // Cobertura (sem "Comum" — removido por decisão do usuário)
     if (spot.isCovered) labels.push('Coberta');
     if (spot.isUncovered) labels.push('Descoberta');
-    // Tipo - check both formats (full 'Vaga X' and short 'x')
     const types: string[] = spot.type || [];
     if (types.includes('Vaga Presa') || types.includes('presa')) labels.push('Presa');
     if (types.includes('Vaga Livre') || types.includes('livre')) labels.push('Livre');
     if (types.includes('Vaga Idoso') || types.includes('idoso')) labels.push('Idoso');
     if (types.includes('Vaga PcD') || types.includes('pcd')) labels.push('PCD');
     if (types.includes('Vaga Motocicleta') || types.includes('moto')) labels.push('Moto');
-    // Tamanho ocultado por decisão do usuário
+    if (types.includes('Vaga Grande') || types.includes('grande')) labels.push('Grande');
+    if (types.includes('Vaga Pequena') || types.includes('pequena')) labels.push('Pequena');
+    if (types.includes('Vaga Comum') || types.includes('comum')) labels.push('Comum');
     return labels;
   };
 
-  const getMarkerColor = (status: string) => {
+  const getSpotTypeColor = (spot: any): string | null => {
+    const types: string[] = spot.type || [];
+    if (types.includes('Vaga PcD') || types.includes('pcd')) return 'bg-blue-700 border-blue-900';
+    if (types.includes('Vaga Idoso') || types.includes('idoso')) return 'bg-orange-500 border-orange-700';
+    if (types.includes('Vaga Motocicleta') || types.includes('moto')) return 'bg-rose-500 border-rose-700';
+    if (types.includes('Vaga Presa') || types.includes('presa')) return 'bg-purple-500 border-purple-700';
+    if (types.includes('Vaga Livre') || types.includes('livre')) return 'bg-teal-500 border-teal-700';
+    if (types.includes('Vaga Grande') || types.includes('grande')) return 'bg-indigo-500 border-indigo-700';
+    if (types.includes('Vaga Pequena') || types.includes('pequena')) return 'bg-cyan-500 border-cyan-700';
+    if (types.includes('Vaga Comum') || types.includes('comum')) return 'bg-green-500 border-green-700';
+    return null;
+  };
+
+  const getMarkerColor = (status: string, spot?: any) => {
     switch (status) {
       case 'choosing': return 'bg-yellow-400 border-yellow-600 animate-pulse';
       case 'chosen': return 'bg-red-500 border-red-700';
       case 'reserved': return 'bg-blue-500 border-blue-700';
       case 'occupied': return 'bg-orange-500 border-orange-700';
-      default: return 'bg-green-500 border-green-700';
+      default: {
+        if (spot) {
+          const typeColor = getSpotTypeColor(spot);
+          if (typeColor) return typeColor;
+        }
+        return 'bg-green-500 border-green-700';
+      }
     }
   };
 
@@ -264,7 +283,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                     className={cn(
                       'absolute flex items-center justify-center rounded-full border text-white font-bold',
                       'w-3.5 h-3.5 text-[5px] md:w-4 md:h-4 md:text-[6px]',
-                      getMarkerColor(status),
+                      getMarkerColor(status, spot),
                     )}
                     style={{
                       left: `${pos.x}%`,
@@ -393,7 +412,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                           className={cn(
                             'flex items-center justify-center rounded-full border-2 text-white font-bold shadow-lg transition-transform',
                             'group-hover:scale-125 group-hover:z-10',
-                            getMarkerColor(status),
+                            getMarkerColor(status, spot),
                             status === 'chosen' && 'ring-2 ring-red-300',
                             status === 'choosing' && 'ring-2 ring-yellow-300 scale-110',
                           )}
