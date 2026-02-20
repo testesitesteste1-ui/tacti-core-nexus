@@ -433,82 +433,32 @@ export const SectorLotterySystem = () => {
       return shuffled;
     };
 
-    /** Ordena participantes por prioridade, sorteando dentro de cada subgrupo */
+    /** Ordena participantes por prioridade: 1° PcD, 2° Idoso, 3° Demais (inadimplentes por último) */
     const sortByPriorityWithShuffle = (participants: Participant[]): Participant[] => {
       const pcd = shuffleArray(participants.filter(p => p.hasSpecialNeeds && !isDefaulter(p)));
       const elderly = shuffleArray(participants.filter(p => p.isElderly && !p.hasSpecialNeeds && !isDefaulter(p)));
       const normal = shuffleArray(participants.filter(p => !p.hasSpecialNeeds && !p.isElderly && !isDefaulter(p)));
-      const defaulters = shuffleArray(participants.filter(p => isDefaulter(p)));
-      return [...pcd, ...elderly, ...normal, ...defaulters];
+      const defaulters = shuffleArray(participants.filter(p => isDefaulter(p) && !p.hasSpecialNeeds));
+      const pcdDefaulters = shuffleArray(participants.filter(p => isDefaulter(p) && p.hasSpecialNeeds));
+      return [...pcd, ...pcdDefaulters, ...elderly, ...normal, ...defaulters];
     };
 
     // Ordenar setores alfabeticamente
     const sortedSectors = [...usedSectors].sort();
     const totalSectors = sortedSectors.length;
 
-    console.log('\n🏢 ========== SORTEIO SETORIAL (POR SETOR) ==========');
+    console.log('\n🏢 ========== SORTEIO SETORIAL ==========');
+    console.log(`   📊 Ordem: 1° Setor → 2° PcD → 3° Idoso → 4° Demais`);
     console.log(`   📊 Setores: ${sortedSectors.join(', ')}`);
     console.log(`   👥 Total participantes: ${buildingParticipants.length}`);
     console.log(`   🅿️ Total vagas: ${buildingSpots.length}`);
 
-    // ============ ETAPA 1: PcDs (escolha manual - antes dos setores) ============
-    console.log('\n♿ PRÉ-ETAPA: PcDs COM ESCOLHA MANUAL');
-    setCurrentStep('Pré-etapa: PcDs com escolha manual...');
-    setProgress(5);
-
-    const pcdParticipants = shuffleArray(
-      buildingParticipants.filter(p => p.hasSpecialNeeds && !isDefaulter(p))
-    );
-    console.log(`   📊 PcDs encontrados: ${pcdParticipants.length}`);
-
-    for (const participant of pcdParticipants) {
-      const numberOfSpots = Math.max(1, participant.numberOfSpots || 1);
-
-      for (let i = 0; i < numberOfSpots; i++) {
-        // Primeiro tenta vaga PcD
-        const availablePcdSpots = availableSpots.filter(s => isSpotPcD(s) && !assignedSpotIds.has(s.id));
-
-        if (availablePcdSpots.length > 0) {
-          const randomPcdSpot = availablePcdSpots[Math.floor(Math.random() * availablePcdSpots.length)];
-          assignSpot(participant, randomPcdSpot, 'pcd-priority');
-          console.log(`   ✅ PcD ${participant.name} recebeu vaga PcD ${randomPcdSpot.number}`);
-        } else {
-          console.log(`   ⚠️ Sem vagas PcD disponíveis. ${participant.name} vai ESCOLHER manualmente.`);
-
-          const normalSpotsAvailable = availableSpots.filter(s => !isSpotPcD(s) && !assignedSpotIds.has(s.id));
-
-          if (normalSpotsAvailable.length > 0) {
-            const selectedSpotId = await waitForPcdManualSelection(participant, normalSpotsAvailable);
-
-            if (selectedSpotId) {
-              const selectedSpot = availableSpots.find(s => s.id === selectedSpotId);
-              if (selectedSpot) {
-                assignSpot(participant, selectedSpot, 'pcd-manual-selection');
-                console.log(`   ✅ PcD ${participant.name} ESCOLHEU vaga ${selectedSpot.number}`);
-              }
-            } else {
-              console.log(`   ⏭️ PcD ${participant.name} pulou a seleção`);
-            }
-          } else {
-            console.log(`   ❌ Sem vagas disponíveis para ${participant.name}`);
-          }
-        }
-      }
-
-      const assignedCount = newResults.filter(r => r.participantId === participant.id).length;
-      if (assignedCount >= numberOfSpots) {
-        assignedParticipantIds.add(participant.id);
-      }
-    }
-
-    await new Promise(r => setTimeout(r, 300));
-
-    // ============ ETAPA 2: SORTEIO POR SETOR (A, B, C...) ============
-    console.log('\n🏢 ETAPA PRINCIPAL: SORTEIO POR SETOR');
+    // ============ SORTEIO POR SETOR (A, B, C...) ============
+    console.log('\n🏢 SORTEIO POR SETOR');
 
     for (let sIdx = 0; sIdx < sortedSectors.length; sIdx++) {
       const sector = sortedSectors[sIdx];
-      const progressBase = 10 + ((sIdx / totalSectors) * 70);
+      const progressBase = 10 + ((sIdx / totalSectors) * 75);
       setProgress(Math.round(progressBase));
       setCurrentStep(`Sorteando ${sector}...`);
 
@@ -520,13 +470,10 @@ export const SectorLotterySystem = () => {
         (p.sector === sector || (p.preferredSectors && p.preferredSectors[0] === sector && !p.sector))
       );
 
-      // Vagas deste setor
-      const sectorSpots = availableSpots.filter(s => getSpotSector(s) === sector && !assignedSpotIds.has(s.id));
-
       console.log(`   👥 Participantes no setor: ${sectorParticipants.length}`);
-      console.log(`   🅿️ Vagas no setor: ${sectorSpots.length}`);
+      console.log(`   🅿️ Vagas no setor: ${availableSpots.filter(s => getSpotSector(s) === sector && !assignedSpotIds.has(s.id)).length}`);
 
-      // Ordenar: PcD > Idoso > Normal > Inadimplente (sorteio dentro de cada grupo)
+      // Ordenar: 1° PcD > 2° Idoso > 3° Demais (inadimplentes por último)
       const orderedParticipants = sortByPriorityWithShuffle(sectorParticipants);
 
       for (const participant of orderedParticipants) {
@@ -535,6 +482,38 @@ export const SectorLotterySystem = () => {
         const needed = numberOfSpots - alreadyAssigned;
 
         for (let i = 0; i < needed; i++) {
+          // PcD: tentar vaga PcD primeiro, senão escolha manual
+          if (participant.hasSpecialNeeds) {
+            const availablePcdSpots = availableSpots.filter(s => isSpotPcD(s) && !assignedSpotIds.has(s.id));
+
+            if (availablePcdSpots.length > 0) {
+              const randomPcdSpot = availablePcdSpots[Math.floor(Math.random() * availablePcdSpots.length)];
+              assignSpot(participant, randomPcdSpot, `pcd-${sector}`);
+              console.log(`   ♿ PcD ${participant.name} recebeu vaga PcD ${randomPcdSpot.number}`);
+              continue;
+            } else {
+              console.log(`   ⚠️ Sem vagas PcD. ${participant.name} vai ESCOLHER manualmente.`);
+              const normalSpotsAvailable = availableSpots.filter(s => !isSpotPcD(s) && !assignedSpotIds.has(s.id));
+
+              if (normalSpotsAvailable.length > 0) {
+                const selectedSpotId = await waitForPcdManualSelection(participant, normalSpotsAvailable);
+                if (selectedSpotId) {
+                  const selectedSpot = availableSpots.find(s => s.id === selectedSpotId);
+                  if (selectedSpot) {
+                    assignSpot(participant, selectedSpot, `pcd-manual-${sector}`);
+                    console.log(`   ✅ PcD ${participant.name} ESCOLHEU vaga ${selectedSpot.number}`);
+                  }
+                } else {
+                  console.log(`   ⏭️ PcD ${participant.name} pulou a seleção`);
+                }
+              } else {
+                console.log(`   ❌ Sem vagas disponíveis para ${participant.name}`);
+              }
+              continue;
+            }
+          }
+
+          // Demais participantes: busca automática
           // Tentar vaga no próprio setor primeiro (strict)
           let eligible = filterSpotsForParticipant(
             availableSpots.filter(s => getSpotSector(s) === sector),
