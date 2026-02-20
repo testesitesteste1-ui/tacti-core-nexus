@@ -42,9 +42,9 @@ const App = () => (
                   </ProtectedRoute>
                 } 
               />
-              <Route path="*" element={<NotFound />} />
               {/* Public results route (no auth) */}
               <Route path="/resultados/:condominioId" element={<PublicResultsRoute />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </AppProvider>
         </AuthProvider>
