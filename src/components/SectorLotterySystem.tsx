@@ -119,15 +119,9 @@ export const SectorLotterySystem = () => {
     }
   }, [results, storageKey, buildingId]);
 
-  // Extrair setor da vaga (usa campo sector, fallback para número)
+  // Extrair setor da vaga
   const getSpotSector = (spot: ParkingSpot): string | null => {
     if (spot.sector) return spot.sector;
-    return null;
-  };
-
-  // Extrair setor do participante (usa campo sector, fallback para bloco)
-  const getParticipantSector = (participant: Participant): string | null => {
-    if (participant.sector) return participant.sector;
     return null;
   };
 
@@ -135,6 +129,32 @@ export const SectorLotterySystem = () => {
   const isSpotPcD = (spot: ParkingSpot): boolean => {
     const types = Array.isArray(spot.type) ? spot.type : [spot.type];
     return types.includes('Vaga PcD');
+  };
+
+  // Verificar se a vaga é de Idoso
+  const isSpotIdoso = (spot: ParkingSpot): boolean => {
+    const types = Array.isArray(spot.type) ? spot.type : [spot.type];
+    return types.includes('Vaga Idoso');
+  };
+
+  // Verificar se a vaga é de Motocicleta
+  const isSpotMotorcycle = (spot: ParkingSpot): boolean => {
+    const types = Array.isArray(spot.type) ? spot.type : [spot.type];
+    return types.includes('Vaga Motocicleta');
+  };
+
+  // Helper: verificar se spot tem atributo
+  const spotHasType = (spot: ParkingSpot, typeName: string): boolean => {
+    const types = Array.isArray(spot.type) ? spot.type : [spot.type];
+    return types.includes(typeName as any);
+  };
+
+  // Helper: verificar cobertura
+  const spotIsCovered = (spot: ParkingSpot): boolean => {
+    return spotHasType(spot, 'Vaga Coberta') || spot.isCovered === true;
+  };
+  const spotIsUncovered = (spot: ParkingSpot): boolean => {
+    return spotHasType(spot, 'Vaga Descoberta') || spot.isUncovered === true;
   };
 
   // Verificar se participante é inadimplente
@@ -147,6 +167,151 @@ export const SectorLotterySystem = () => {
     if (participant.isElderly) return 'elderly';
     if (participant.isUpToDate) return 'up-to-date';
     return 'normal';
+  };
+
+  /**
+   * Filtra vagas elegíveis para um participante, respeitando preferências.
+   * strict = true: retorna vazio se preferência de cobertura/tipo não atendida.
+   * strict = false: relaxa preferências de cobertura/Livre/Presa.
+   */
+  const filterSpotsForParticipant = (
+    spots: ParkingSpot[],
+    participant: Participant,
+    assignedSpotIds: Set<string>,
+    strict: boolean = true
+  ): ParkingSpot[] => {
+    let eligible = spots.filter(s => !assignedSpotIds.has(s.id));
+
+    // 1. Exclusividade de Motocicleta (bidirecional)
+    if (participant.hasMotorcycle) {
+      eligible = eligible.filter(s => isSpotMotorcycle(s));
+    } else {
+      eligible = eligible.filter(s => !isSpotMotorcycle(s));
+    }
+
+    // 2. PcD: participante NÃO-PcD não pega vaga PcD
+    if (!participant.hasSpecialNeeds) {
+      eligible = eligible.filter(s => !isSpotPcD(s));
+    }
+
+    // 3. Idoso: participante NÃO-Idoso evita vaga Idoso
+    if (!participant.isElderly) {
+      const nonIdoso = eligible.filter(s => !isSpotIdoso(s));
+      if (nonIdoso.length > 0) eligible = nonIdoso;
+    }
+
+    // 4. Preferência Coberta/Descoberta
+    const wantsCovered = participant.prefersCovered && !participant.prefersUncovered;
+    const wantsUncovered = participant.prefersUncovered && !participant.prefersCovered;
+    if (wantsCovered) {
+      const covered = eligible.filter(s => spotIsCovered(s));
+      if (covered.length > 0) eligible = covered;
+      else if (strict) return [];
+    } else if (wantsUncovered) {
+      const uncovered = eligible.filter(s => spotIsUncovered(s));
+      if (uncovered.length > 0) eligible = uncovered;
+      else if (strict) return [];
+    }
+
+    // 5. Preferência Presa/Livre
+    if (participant.prefersLinkedSpot && !participant.prefersUnlinkedSpot) {
+      const linked = eligible.filter(s => spotHasType(s, 'Vaga Presa'));
+      if (linked.length > 0) eligible = linked;
+      else if (strict) return [];
+    } else if (participant.prefersUnlinkedSpot && !participant.prefersLinkedSpot) {
+      const unlinked = eligible.filter(s => spotHasType(s, 'Vaga Livre'));
+      if (unlinked.length > 0) eligible = unlinked;
+      else if (strict) return [];
+    }
+
+    // 6. Veículo Pequeno → preferir vaga pequena
+    if (participant.prefersSmallSpot || participant.hasSmallCar) {
+      const small = eligible.filter(s => spotHasType(s, 'Vaga Pequena') || s.size === 'P');
+      if (small.length > 0) eligible = small;
+    }
+
+    // 7. Veículo Grande → preferir vaga grande
+    if (participant.hasLargeCar) {
+      const large = eligible.filter(s => spotHasType(s, 'Vaga Grande') || s.size === 'G' || s.size === 'XG');
+      if (large.length > 0) eligible = large;
+    }
+
+    // 8. Andares preferidos (soft)
+    if (participant.preferredFloors && participant.preferredFloors.length > 0) {
+      const inFloors = eligible.filter(s => participant.preferredFloors!.includes(s.floor));
+      if (inFloors.length > 0) eligible = inFloors;
+    }
+
+    return eligible;
+  };
+
+  /**
+   * Encontra a melhor vaga para um participante, seguindo ordem de setores.
+   * Fase 1: Vagas no setor (strict) → vagas sem setor (strict)
+   * Fase 2: Vagas no setor (relaxed) → vagas sem setor (relaxed)
+   * Fase 3: Qualquer vaga restante
+   */
+  const findBestSpot = (
+    participant: Participant,
+    availableSpots: ParkingSpot[],
+    assignedSpotIds: Set<string>,
+    sectorPriority: string[]
+  ): ParkingSpot | null => {
+    // Fase 1: Strict
+    for (const sector of sectorPriority) {
+      const sectorSpots = availableSpots.filter(s => getSpotSector(s) === sector);
+      const eligible = filterSpotsForParticipant(sectorSpots, participant, assignedSpotIds, true);
+      if (eligible.length > 0) return eligible[Math.floor(Math.random() * eligible.length)];
+    }
+    // Fase 1b: Vagas sem setor (strict)
+    const noSectorSpots = availableSpots.filter(s => !getSpotSector(s));
+    const eligibleNoSector = filterSpotsForParticipant(noSectorSpots, participant, assignedSpotIds, true);
+    if (eligibleNoSector.length > 0) return eligibleNoSector[Math.floor(Math.random() * eligibleNoSector.length)];
+
+    // Fase 2: Relaxed
+    for (const sector of sectorPriority) {
+      const sectorSpots = availableSpots.filter(s => getSpotSector(s) === sector);
+      const eligible = filterSpotsForParticipant(sectorSpots, participant, assignedSpotIds, false);
+      if (eligible.length > 0) {
+        console.log(`      ⚠️ ${participant.name}: preferências relaxadas no setor ${sector}`);
+        return eligible[Math.floor(Math.random() * eligible.length)];
+      }
+    }
+    // Fase 2b: Vagas sem setor (relaxed)
+    const eligibleNoSectorRelaxed = filterSpotsForParticipant(noSectorSpots, participant, assignedSpotIds, false);
+    if (eligibleNoSectorRelaxed.length > 0) {
+      console.log(`      ⚠️ ${participant.name}: usando vaga sem setor (preferências relaxadas)`);
+      return eligibleNoSectorRelaxed[Math.floor(Math.random() * eligibleNoSectorRelaxed.length)];
+    }
+
+    // Fase 3: Qualquer vaga (respeita exclusividade moto)
+    const anyEligible = availableSpots.filter(s => {
+      if (assignedSpotIds.has(s.id)) return false;
+      if (participant.hasMotorcycle) return isSpotMotorcycle(s);
+      return !isSpotMotorcycle(s) && !isSpotPcD(s);
+    });
+    if (anyEligible.length > 0) {
+      console.log(`      ❗ ${participant.name}: alocado em vaga residual`);
+      return anyEligible[Math.floor(Math.random() * anyEligible.length)];
+    }
+    return null;
+  };
+
+  /** Monta lista de prioridade de setores para um participante */
+  const getSectorPriority = (participant: Participant): string[] => {
+    if (participant.preferredSectors && participant.preferredSectors.length > 0) {
+      return [
+        ...participant.preferredSectors,
+        ...usedSectors.filter(s => !participant.preferredSectors!.includes(s as any))
+      ];
+    }
+    const pSector = participant.sector;
+    if (pSector) {
+      return selectedBuilding?.sectorProximity?.[pSector]
+        || config.sectorMapping[pSector]
+        || [pSector, ...usedSectors.filter(s => s !== pSector)];
+    }
+    return usedSectors;
   };
 
   // Estatísticas
@@ -323,147 +488,99 @@ export const SectorLotterySystem = () => {
 
     await new Promise(r => setTimeout(r, 300));
 
-    // ============ ETAPA 2: Vaga Única (por setor) ============
-    console.log('\n🎯 ETAPA 2: SORTEIO VAGA ÚNICA (POR SETOR)');
-    setCurrentStep('Etapa 2: Sorteando vagas únicas por setor...');
-    setProgress(30);
+    // ============ ETAPA 2: Idosos (por setor) ============
+    console.log('\n👴 ETAPA 2: SORTEIO IDOSOS');
+    setCurrentStep('Etapa 2: Sorteando idosos...');
+    setProgress(25);
+
+    const elderlyParticipants = shuffleArray(
+      buildingParticipants.filter(p =>
+        !assignedParticipantIds.has(p.id) &&
+        p.isElderly &&
+        !p.hasSpecialNeeds &&
+        !isDefaulter(p)
+      )
+    );
+    console.log(`   📊 Idosos encontrados: ${elderlyParticipants.length}`);
+
+    for (const participant of elderlyParticipants) {
+      const numberOfSpots = Math.max(1, participant.numberOfSpots || 1);
+      const sectors = getSectorPriority(participant);
+      console.log(`   👤 ${participant.name} - Setores: ${sectors.join(' → ')}`);
+
+      for (let i = 0; i < numberOfSpots; i++) {
+        // Idosos tentam primeiro vagas Idoso, depois qualquer vaga
+        const idosoSpots = availableSpots.filter(s => !assignedSpotIds.has(s.id) && isSpotIdoso(s));
+        let spot: ParkingSpot | null = null;
+        if (idosoSpots.length > 0) {
+          // Filtrar por setor preferido
+          for (const sector of sectors) {
+            const sectorIdoso = idosoSpots.filter(s => getSpotSector(s) === sector);
+            if (sectorIdoso.length > 0) {
+              spot = sectorIdoso[Math.floor(Math.random() * sectorIdoso.length)];
+              break;
+            }
+          }
+          if (!spot) {
+            spot = idosoSpots[Math.floor(Math.random() * idosoSpots.length)];
+          }
+        }
+        if (!spot) {
+          spot = findBestSpot(participant, availableSpots, assignedSpotIds, sectors);
+        }
+        if (spot) assignSpot(participant, spot, 'elderly');
+      }
+
+      const assignedCount = newResults.filter(r => r.participantId === participant.id).length;
+      if (assignedCount >= Math.max(1, participant.numberOfSpots || 1)) {
+        assignedParticipantIds.add(participant.id);
+      }
+    }
+
+    await new Promise(r => setTimeout(r, 300));
+
+    // ============ ETAPA 3: Vaga Única (por setor) ============
+    console.log('\n🎯 ETAPA 3: SORTEIO VAGA ÚNICA (POR SETOR)');
+    setCurrentStep('Etapa 3: Sorteando vagas únicas por setor...');
+    setProgress(40);
 
     const uniqueParticipants = shuffleArray(
       buildingParticipants.filter(p =>
         !assignedParticipantIds.has(p.id) &&
         !p.hasSpecialNeeds &&
+        !p.isElderly &&
         (p.numberOfSpots || 1) === 1 &&
-        !p.prefersLinkedSpot &&
         !isDefaulter(p)
       )
     );
     console.log(`   📊 Participantes vaga única: ${uniqueParticipants.length}`);
 
     for (const participant of uniqueParticipants) {
-      const participantSector = getParticipantSector(participant);
-      // Usar preferredSectors do participante se disponível, senão fallback para config
-      const sectorPriority = participant.preferredSectors && participant.preferredSectors.length > 0
-        ? [...participant.preferredSectors, ...usedSectors.filter(s => !participant.preferredSectors!.includes(s as any))]
-        : participantSector ? (config.sectorMapping[participantSector] || [participantSector, ...usedSectors.filter(s => s !== participantSector)]) : usedSectors;
+      const sectors = getSectorPriority(participant);
+      console.log(`   👤 ${participant.name} (Bl. ${participant.block}) - Setores: ${sectors.join(' → ')}`);
 
-      console.log(`   👤 ${participant.name} (Bloco ${participant.block}) - Prioridade setores: ${sectorPriority.join(' → ')}`);
-      
-      // ✅ NOVO: Determinar preferência estrita de coberta/descoberta
-      const wantsCovered = participant.prefersCovered && !participant.prefersUncovered;
-      const wantsUncovered = participant.prefersUncovered && !participant.prefersCovered;
-      console.log(`      🏠 Preferência cobertura: ${wantsCovered ? 'COBERTA' : wantsUncovered ? 'DESCOBERTA' : 'sem preferência'}`);
-
-      let spotFound = false;
-
-      for (const sector of sectorPriority) {
-        // Passo 1: Filtrar vagas do setor (incluir vagas sem setor como fallback)
-        let sectorSpots = availableSpots.filter(s =>
-          !assignedSpotIds.has(s.id) &&
-          !isSpotPcD(s) &&
-          (getSpotSector(s) === sector || !getSpotSector(s))
-        );
-
-        // ✅ CORRIGIDO: Aplicar filtro de coberta/descoberta verificando AMBOS (type[] e booleanos)
-        if (wantsCovered) {
-          const coveredSpots = sectorSpots.filter(s => {
-            const typeArray = Array.isArray(s.type) ? s.type : [s.type];
-            return typeArray.includes('Vaga Coberta') || s.isCovered === true;
-          });
-          if (coveredSpots.length > 0) {
-            sectorSpots = coveredSpots;
-            console.log(`      🏠 Filtrado para vagas COBERTAS: ${coveredSpots.length} disponíveis`);
-          } else {
-            console.log(`      ⚠️ SEM vagas COBERTAS no setor ${sector}, tentando próximo setor...`);
-            continue; // Tentar próximo setor
-          }
-        } else if (wantsUncovered) {
-          const uncoveredSpots = sectorSpots.filter(s => {
-            const typeArray = Array.isArray(s.type) ? s.type : [s.type];
-            return typeArray.includes('Vaga Descoberta') || s.isUncovered === true;
-          });
-          if (uncoveredSpots.length > 0) {
-            sectorSpots = uncoveredSpots;
-            console.log(`      ☀️ Filtrado para vagas DESCOBERTAS: ${uncoveredSpots.length} disponíveis`);
-          } else {
-            console.log(`      ⚠️ SEM vagas DESCOBERTAS no setor ${sector}, tentando próximo setor...`);
-            continue; // Tentar próximo setor
-          }
-        }
-
-        // Passo 2: Filtrar por andares preferidos
-        if (participant.preferredFloors && participant.preferredFloors.length > 0) {
-          const spotsInPreferredFloors = sectorSpots.filter(s =>
-            participant.preferredFloors!.includes(s.floor)
-          );
-          if (spotsInPreferredFloors.length > 0) {
-            sectorSpots = spotsInPreferredFloors;
-            console.log(`      📍 Filtrado para andares preferidos: ${participant.preferredFloors.join(', ')}`);
-          } else {
-            console.log(`      ⚠️ Sem vagas nos andares preferidos (${participant.preferredFloors.join(', ')}), usando qualquer andar do setor`);
-          }
-        }
-
-        if (sectorSpots.length > 0) {
-          const randomSpot = sectorSpots[Math.floor(Math.random() * sectorSpots.length)];
-          assignSpot(participant, randomSpot, `unique-sector-${sector}`);
-          assignedParticipantIds.add(participant.id);
-          spotFound = true;
-          break;
-        }
-      }
-
-      // ✅ FALLBACK: Se não achou em nenhum setor COM a preferência de cobertura, relaxar
-      if (!spotFound && (wantsCovered || wantsUncovered)) {
-        console.log(`      🔄 Relaxando preferência de cobertura para ${participant.name}...`);
-        
-        for (const sector of sectorPriority) {
-          let sectorSpots = availableSpots.filter(s =>
-            !assignedSpotIds.has(s.id) &&
-            !isSpotPcD(s) &&
-            (getSpotSector(s) === sector || !getSpotSector(s))
-          );
-          
-          if (participant.preferredFloors && participant.preferredFloors.length > 0) {
-            const spotsInPreferredFloors = sectorSpots.filter(s =>
-              participant.preferredFloors!.includes(s.floor)
-            );
-            if (spotsInPreferredFloors.length > 0) {
-              sectorSpots = spotsInPreferredFloors;
-            }
-          }
-
-          if (sectorSpots.length > 0) {
-            const randomSpot = sectorSpots[Math.floor(Math.random() * sectorSpots.length)];
-            assignSpot(participant, randomSpot, `unique-sector-${sector}-relaxed`);
-            assignedParticipantIds.add(participant.id);
-            spotFound = true;
-            console.log(`      ⚠️ ${participant.name} alocado SEM respeitar preferência de cobertura (não havia disponível)`);
-            break;
-          }
-        }
-      }
-
-      if (!spotFound) {
-        const anySpot = availableSpots.find(s => !assignedSpotIds.has(s.id) && !isSpotPcD(s));
-        if (anySpot) {
-          assignSpot(participant, anySpot, 'unique-any');
-          assignedParticipantIds.add(participant.id);
-        }
+      const spot = findBestSpot(participant, availableSpots, assignedSpotIds, sectors);
+      if (spot) {
+        assignSpot(participant, spot, 'unique-sector');
+        assignedParticipantIds.add(participant.id);
+      } else {
+        console.log(`   ❌ Sem vaga disponível para ${participant.name}`);
       }
     }
 
     await new Promise(r => setTimeout(r, 300));
 
-    // ============ ETAPA 3: Vaga Dupla ============
-    console.log('\n🚗🚗 ETAPA 3: SORTEIO VAGA DUPLA');
-    setCurrentStep('Etapa 3: Sorteando vagas duplas...');
-    setProgress(50);
+    // ============ ETAPA 4: Vaga Dupla ============
+    console.log('\n🚗🚗 ETAPA 4: SORTEIO VAGA DUPLA');
+    setCurrentStep('Etapa 4: Sorteando vagas duplas...');
+    setProgress(60);
 
     const doubleParticipants = shuffleArray(
       buildingParticipants.filter(p =>
         !assignedParticipantIds.has(p.id) &&
         !p.hasSpecialNeeds &&
-        ((p.numberOfSpots || 1) > 1 || p.prefersLinkedSpot) &&
+        !p.isElderly &&
+        ((p.numberOfSpots || 1) > 1) &&
         !isDefaulter(p)
       )
     );
@@ -471,103 +588,12 @@ export const SectorLotterySystem = () => {
 
     for (const participant of doubleParticipants) {
       const numberOfSpots = Math.max(2, participant.numberOfSpots || 2);
-      const participantSector = getParticipantSector(participant);
-      // Usar preferredSectors do participante se disponível
-      const sectorPriority = participant.preferredSectors && participant.preferredSectors.length > 0
-        ? [...participant.preferredSectors, ...usedSectors.filter(s => !participant.preferredSectors!.includes(s as any))]
-        : participantSector ? (config.sectorMapping[participantSector] || [participantSector, ...usedSectors.filter(s => s !== participantSector)]) : usedSectors;
-
-      // ✅ NOVO: Determinar preferência estrita de coberta/descoberta
-      const wantsCovered = participant.prefersCovered && !participant.prefersUncovered;
-      const wantsUncovered = participant.prefersUncovered && !participant.prefersCovered;
-
-      console.log(`   👤 ${participant.name} - Precisa de ${numberOfSpots} vagas - Cobertura: ${wantsCovered ? 'COBERTA' : wantsUncovered ? 'DESCOBERTA' : 'sem preferência'}`);
+      const sectors = getSectorPriority(participant);
+      console.log(`   👤 ${participant.name} - Precisa de ${numberOfSpots} vagas`);
 
       for (let i = 0; i < numberOfSpots; i++) {
-        let spotFound = false;
-
-        for (const sector of sectorPriority) {
-          let sectorSpots = availableSpots.filter(s =>
-            !assignedSpotIds.has(s.id) &&
-            !isSpotPcD(s) &&
-            (getSpotSector(s) === sector || !getSpotSector(s))
-          );
-
-          // ✅ CORRIGIDO: Aplicar filtro de cobertura verificando AMBOS (type[] e booleanos)
-          if (wantsCovered) {
-            const coveredSpots = sectorSpots.filter(s => {
-              const typeArray = Array.isArray(s.type) ? s.type : [s.type];
-              return typeArray.includes('Vaga Coberta') || s.isCovered === true;
-            });
-            if (coveredSpots.length > 0) {
-              sectorSpots = coveredSpots;
-            } else {
-              continue; // Tentar próximo setor
-            }
-          } else if (wantsUncovered) {
-            const uncoveredSpots = sectorSpots.filter(s => {
-              const typeArray = Array.isArray(s.type) ? s.type : [s.type];
-              return typeArray.includes('Vaga Descoberta') || s.isUncovered === true;
-            });
-            if (uncoveredSpots.length > 0) {
-              sectorSpots = uncoveredSpots;
-            } else {
-              continue; // Tentar próximo setor
-            }
-          }
-
-          // Filtrar por andares preferidos
-          if (participant.preferredFloors && participant.preferredFloors.length > 0) {
-            const spotsInPreferredFloors = sectorSpots.filter(s =>
-              participant.preferredFloors!.includes(s.floor)
-            );
-            if (spotsInPreferredFloors.length > 0) {
-              sectorSpots = spotsInPreferredFloors;
-            }
-          }
-
-          if (sectorSpots.length > 0) {
-            const randomSpot = sectorSpots[Math.floor(Math.random() * sectorSpots.length)];
-            assignSpot(participant, randomSpot, `double-sector-${sector}`);
-            spotFound = true;
-            break;
-          }
-        }
-
-        // ✅ FALLBACK: Se não achou COM preferência de cobertura, relaxar
-        if (!spotFound && (wantsCovered || wantsUncovered)) {
-          for (const sector of sectorPriority) {
-            let sectorSpots = availableSpots.filter(s =>
-              !assignedSpotIds.has(s.id) &&
-              !isSpotPcD(s) &&
-              (getSpotSector(s) === sector || !getSpotSector(s))
-            );
-
-            if (participant.preferredFloors && participant.preferredFloors.length > 0) {
-              const spotsInPreferredFloors = sectorSpots.filter(s =>
-                participant.preferredFloors!.includes(s.floor)
-              );
-              if (spotsInPreferredFloors.length > 0) {
-                sectorSpots = spotsInPreferredFloors;
-              }
-            }
-
-            if (sectorSpots.length > 0) {
-              const randomSpot = sectorSpots[Math.floor(Math.random() * sectorSpots.length)];
-              assignSpot(participant, randomSpot, `double-sector-${sector}-relaxed`);
-              spotFound = true;
-              console.log(`      ⚠️ Vaga alocada SEM respeitar preferência de cobertura`);
-              break;
-            }
-          }
-        }
-
-        if (!spotFound) {
-          const anySpot = availableSpots.find(s => !assignedSpotIds.has(s.id) && !isSpotPcD(s));
-          if (anySpot) {
-            assignSpot(participant, anySpot, 'double-any');
-          }
-        }
+        const spot = findBestSpot(participant, availableSpots, assignedSpotIds, sectors);
+        if (spot) assignSpot(participant, spot, 'double-sector');
       }
 
       const assignedCount = newResults.filter(r => r.participantId === participant.id).length;
@@ -578,10 +604,10 @@ export const SectorLotterySystem = () => {
 
     await new Promise(r => setTimeout(r, 300));
 
-    // ============ ETAPA 4: Aleatório (restantes sem inadimplentes) ============
-    console.log('\n🎲 ETAPA 4: SORTEIO ALEATÓRIO');
-    setCurrentStep('Etapa 4: Sorteando restantes...');
-    setProgress(70);
+    // ============ ETAPA 5: Restantes (não inadimplentes) ============
+    console.log('\n🎲 ETAPA 5: SORTEIO RESTANTES');
+    setCurrentStep('Etapa 5: Sorteando restantes...');
+    setProgress(75);
 
     const remainingParticipants = shuffleArray(
       buildingParticipants.filter(p =>
@@ -589,60 +615,17 @@ export const SectorLotterySystem = () => {
         !isDefaulter(p)
       )
     );
-    console.log(`   📊 Participantes restantes (não inadimplentes): ${remainingParticipants.length}`);
+    console.log(`   📊 Participantes restantes: ${remainingParticipants.length}`);
 
     for (const participant of remainingParticipants) {
       const numberOfSpots = Math.max(1, participant.numberOfSpots || 1);
       const alreadyAssigned = newResults.filter(r => r.participantId === participant.id).length;
       const needed = numberOfSpots - alreadyAssigned;
-
-      // ✅ NOVO: Determinar preferência estrita de coberta/descoberta
-      const wantsCovered = participant.prefersCovered && !participant.prefersUncovered;
-      const wantsUncovered = participant.prefersUncovered && !participant.prefersCovered;
-      console.log(`   👤 ${participant.name} - Cobertura: ${wantsCovered ? 'COBERTA' : wantsUncovered ? 'DESCOBERTA' : 'sem preferência'}`);
+      const sectors = getSectorPriority(participant);
 
       for (let i = 0; i < needed; i++) {
-        let eligibleSpots = availableSpots.filter(s => !assignedSpotIds.has(s.id));
-        
-        // ✅ CORRIGIDO: Aplicar filtro de cobertura verificando AMBOS (type[] e booleanos)
-        if (wantsCovered) {
-          const coveredSpots = eligibleSpots.filter(s => {
-            const typeArray = Array.isArray(s.type) ? s.type : [s.type];
-            return typeArray.includes('Vaga Coberta') || s.isCovered === true;
-          });
-          if (coveredSpots.length > 0) {
-            eligibleSpots = coveredSpots;
-            console.log(`      🏠 Usando vagas COBERTAS: ${coveredSpots.length} disponíveis`);
-          } else {
-            console.log(`      ⚠️ SEM vagas COBERTAS disponíveis`);
-          }
-        } else if (wantsUncovered) {
-          const uncoveredSpots = eligibleSpots.filter(s => {
-            const typeArray = Array.isArray(s.type) ? s.type : [s.type];
-            return typeArray.includes('Vaga Descoberta') || s.isUncovered === true;
-          });
-          if (uncoveredSpots.length > 0) {
-            eligibleSpots = uncoveredSpots;
-            console.log(`      ☀️ Usando vagas DESCOBERTAS: ${uncoveredSpots.length} disponíveis`);
-          } else {
-            console.log(`      ⚠️ SEM vagas DESCOBERTAS disponíveis`);
-          }
-        }
-        
-        // Filtrar por andares preferidos
-        if (participant.preferredFloors && participant.preferredFloors.length > 0) {
-          const spotsInPreferredFloors = eligibleSpots.filter(s =>
-            participant.preferredFloors!.includes(s.floor)
-          );
-          if (spotsInPreferredFloors.length > 0) {
-            eligibleSpots = spotsInPreferredFloors;
-          }
-        }
-
-        const selectedSpot = eligibleSpots[Math.floor(Math.random() * eligibleSpots.length)];
-        if (selectedSpot) {
-          assignSpot(participant, selectedSpot, 'random');
-        }
+        const spot = findBestSpot(participant, availableSpots, assignedSpotIds, sectors);
+        if (spot) assignSpot(participant, spot, 'remaining');
       }
 
       const assignedCount = newResults.filter(r => r.participantId === participant.id).length;
@@ -653,9 +636,9 @@ export const SectorLotterySystem = () => {
 
     await new Promise(r => setTimeout(r, 300));
 
-    // ============ ETAPA 5: Inadimplentes (últimos) ============
-    console.log('\n⚠️ ETAPA 5: SORTEIO INADIMPLENTES');
-    setCurrentStep('Etapa 5: Sorteando inadimplentes...');
+    // ============ ETAPA 6: Inadimplentes (últimos) ============
+    console.log('\n⚠️ ETAPA 6: SORTEIO INADIMPLENTES');
+    setCurrentStep('Etapa 6: Sorteando inadimplentes...');
     setProgress(90);
 
     const defaulterParticipants = shuffleArray(
@@ -670,12 +653,11 @@ export const SectorLotterySystem = () => {
       const numberOfSpots = Math.max(1, participant.numberOfSpots || 1);
       const alreadyAssigned = newResults.filter(r => r.participantId === participant.id).length;
       const needed = numberOfSpots - alreadyAssigned;
+      const sectors = getSectorPriority(participant);
 
       for (let i = 0; i < needed; i++) {
-        const anySpot = availableSpots.find(s => !assignedSpotIds.has(s.id));
-        if (anySpot) {
-          assignSpot(participant, anySpot, 'defaulter');
-        }
+        const spot = findBestSpot(participant, availableSpots, assignedSpotIds, sectors);
+        if (spot) assignSpot(participant, spot, 'defaulter');
       }
 
       const assignedCount = newResults.filter(r => r.participantId === participant.id).length;
@@ -683,7 +665,6 @@ export const SectorLotterySystem = () => {
         assignedParticipantIds.add(participant.id);
       }
     }
-
     // ============ FINALIZAÇÃO ============
     console.log('\n🎊 ========== SORTEIO SETORIAL FINALIZADO ==========');
     console.log(`   ✅ Total alocações: ${newResults.length}`);
@@ -739,7 +720,7 @@ export const SectorLotterySystem = () => {
 
     toast({
       title: "Sorteio setorial concluído",
-      description: `${newResults.length} vaga(s) sorteadas em 5 etapas.`,
+      description: `${newResults.length} vaga(s) sorteadas em 6 etapas.`,
     });
   };
 
@@ -921,7 +902,7 @@ export const SectorLotterySystem = () => {
                 <div className="text-6xl">🎯</div>
                 <h3 className="text-xl font-semibold">Sorteio Setorial</h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  Este sorteio segue 5 etapas: PcDs → Vaga Única (por setor) → Vaga Dupla → Aleatório → Inadimplentes
+                  Este sorteio segue 6 etapas: PcDs → Idosos → Vaga Única (por setor) → Vaga Dupla → Restantes → Inadimplentes
                 </p>
                 <Button
                   size="lg"
