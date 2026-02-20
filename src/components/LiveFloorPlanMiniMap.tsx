@@ -433,19 +433,19 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                           <span
                             key={label}
                             className={cn(
-                              'text-[9px] px-1.5 py-0.5 rounded font-medium',
-                              label === 'Coberta' && 'bg-blue-500/80',
-                              label === 'Descoberta' && 'bg-amber-500/80',
-                              label === 'Comum' && 'bg-gray-500/80',
-                              label === 'Presa' && 'bg-red-500/80',
-                              label === 'Livre' && 'bg-teal-500/80',
-                              label === 'Idoso' && 'bg-sky-400/80',
-                              label === 'PCD' && 'bg-purple-600/80',
-                              label === 'Moto' && 'bg-amber-800/80',
-                              label === 'Pequena' && 'bg-yellow-500/80',
-                              label === 'Média' && 'bg-emerald-500/80',
-                              label === 'Grande' && 'bg-gray-900/80',
-                              label === 'Extra Grande' && 'bg-violet-500/80',
+                              'text-[9px] px-1.5 py-0.5 rounded font-medium text-white',
+                              label === 'Coberta' && 'bg-covered',
+                              label === 'Descoberta' && 'bg-uncovered',
+                              label === 'Comum' && 'bg-slate-500',
+                              label === 'Presa' && 'bg-linked',
+                              label === 'Livre' && 'bg-unlinked',
+                              label === 'Idoso' && 'bg-sky-400',
+                              label === 'PCD' && 'bg-purple-600',
+                              label === 'Moto' && 'bg-amber-800',
+                              label === 'Pequena' && 'bg-small',
+                              label === 'Média' && 'bg-emerald-500',
+                              label === 'Grande' && 'bg-gray-900',
+                              label === 'Extra Grande' && 'bg-violet-500',
                             )}
                           >
                             {label}
