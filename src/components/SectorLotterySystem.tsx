@@ -987,21 +987,21 @@ export const SectorLotterySystem = () => {
                       : result.priority === 'elderly' ? 'Idoso' 
                       : 'Normal';
                     const priorityColor = result.priority === 'special-needs' ? 'bg-purple-500/20 text-purple-700 border-purple-300' 
-                      : result.priority === 'elderly' ? 'bg-orange-500/20 text-orange-700 border-orange-300' 
+                      : result.priority === 'elderly' ? 'bg-sky-400/20 text-sky-700 border-sky-300' 
                       : 'bg-green-500/20 text-green-700 border-green-300';
 
                     // Spot type color mapping
                     const getTypeColor = (type: string) => {
-                      if (type.includes('PcD')) return 'bg-blue-700/20 text-blue-800 border-blue-400';
-                      if (type.includes('Idoso')) return 'bg-orange-500/20 text-orange-700 border-orange-300';
-                      if (type.includes('Motocicleta')) return 'bg-rose-500/20 text-rose-700 border-rose-300';
-                      if (type.includes('Presa')) return 'bg-purple-500/20 text-purple-700 border-purple-300';
-                      if (type.includes('Livre')) return 'bg-teal-500/20 text-teal-700 border-teal-300';
-                      if (type.includes('Grande')) return 'bg-indigo-500/20 text-indigo-700 border-indigo-300';
-                      if (type.includes('Pequena')) return 'bg-cyan-500/20 text-cyan-700 border-cyan-300';
-                      if (type.includes('Coberta')) return 'bg-blue-500/20 text-blue-700 border-blue-300';
-                      if (type.includes('Descoberta')) return 'bg-amber-500/20 text-amber-700 border-amber-300';
-                      if (type.includes('Comum')) return 'bg-green-500/20 text-green-700 border-green-300';
+                      if (type.includes('PcD')) return 'bg-purple-500/20 text-purple-700 border-purple-300';
+                      if (type.includes('Idoso')) return 'bg-sky-400/20 text-sky-700 border-sky-300';
+                      if (type.includes('Motocicleta')) return 'bg-amber-800/20 text-amber-900 border-amber-700';
+                      if (type.includes('Presa')) return 'bg-red-500/20 text-red-700 border-red-300';
+                      if (type.includes('Livre')) return 'bg-green-500/20 text-green-700 border-green-300';
+                      if (type.includes('Grande')) return 'bg-gray-900/20 text-gray-900 border-gray-700';
+                      if (type.includes('Pequena')) return 'bg-yellow-500/20 text-yellow-700 border-yellow-400';
+                      if (type.includes('Coberta')) return 'bg-blue-700/20 text-blue-800 border-blue-500';
+                      if (type.includes('Descoberta')) return 'bg-orange-500/20 text-orange-700 border-orange-300';
+                      if (type.includes('Comum')) return 'bg-gray-500/20 text-gray-700 border-gray-300';
                       return 'bg-gray-500/20 text-gray-700 border-gray-300';
                     };
 
@@ -1015,9 +1015,51 @@ export const SectorLotterySystem = () => {
                           <span>{result.participantSnapshot?.unit}</span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={`text-xs ${priorityColor}`}>
-                            {priorityLabel}
-                          </Badge>
+                          <div className="flex flex-wrap gap-0.5">
+                            <Badge variant="outline" className={`text-[10px] ${priorityColor}`}>
+                              {priorityLabel}
+                            </Badge>
+                            {participant?.hasSmallCar && (
+                              <Badge variant="outline" className="text-[10px] bg-yellow-500/20 text-yellow-700 border-yellow-400">
+                                Veículo Pequeno
+                              </Badge>
+                            )}
+                            {participant?.hasLargeCar && (
+                              <Badge variant="outline" className="text-[10px] bg-gray-900/20 text-gray-900 border-gray-700">
+                                Veículo Grande
+                              </Badge>
+                            )}
+                            {participant?.hasMotorcycle && (
+                              <Badge variant="outline" className="text-[10px] bg-amber-800/20 text-amber-900 border-amber-700">
+                                Motocicleta
+                              </Badge>
+                            )}
+                            {participant?.prefersCommonSpot && (
+                              <Badge variant="outline" className="text-[10px] bg-gray-500/20 text-gray-700 border-gray-300">
+                                Pref. Vaga Comum
+                              </Badge>
+                            )}
+                            {participant?.prefersCovered && (
+                              <Badge variant="outline" className="text-[10px] bg-blue-700/20 text-blue-800 border-blue-500">
+                                Pref. Vaga Coberta
+                              </Badge>
+                            )}
+                            {participant?.prefersUncovered && (
+                              <Badge variant="outline" className="text-[10px] bg-orange-500/20 text-orange-700 border-orange-300">
+                                Pref. Vaga Descoberta
+                              </Badge>
+                            )}
+                            {participant?.prefersUnlinkedSpot && (
+                              <Badge variant="outline" className="text-[10px] bg-green-500/20 text-green-700 border-green-300">
+                                Pref. Vaga Livre
+                              </Badge>
+                            )}
+                            {participant?.prefersLinkedSpot && (
+                              <Badge variant="outline" className="text-[10px] bg-red-500/20 text-red-700 border-red-300">
+                                Pref. Vaga Presa
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {participant?.preferredSectors && participant.preferredSectors.length > 0 ? (
