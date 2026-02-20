@@ -831,7 +831,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
         const session: LotterySession = {
             id: sessionId,
             buildingId: selectedBuilding.id,
-            name: `Sorteio de Escolha - ${new Date().toLocaleDateString('pt-BR')}`,
+            name: `SORTEIO ESCOLHA ${new Date().toLocaleDateString('pt-BR')}`,
             date: new Date(),
             participants: completedOrder.map(p => p.id),
             availableSpots: buildingSpots.map(s => s.id),
