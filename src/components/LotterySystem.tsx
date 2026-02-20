@@ -2282,13 +2282,6 @@ export const LotterySystem = () => {
             >
               🧪 Gerar Dados Teste
             </Button>
-            <Button
-              onClick={clearAllTestData}
-              variant="destructive"
-              className="w-full sm:w-auto text-xs"
-            >
-              🗑️ Limpar Teste
-            </Button>
           </div>
         </div>
       </div>
