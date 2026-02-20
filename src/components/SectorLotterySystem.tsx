@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Play, Settings, Users, Trophy, MapPin, CheckCircle, Building, RotateCcw, ParkingSquare } from 'lucide-react';
+import { Play, Settings, Users, Trophy, MapPin, CheckCircle, Building, RotateCcw, ParkingSquare, Car, AlertCircle } from 'lucide-react';
 import { Participant, ParkingSpot, LotteryResult, LotterySession, AVAILABLE_SECTORS, SectorName } from '@/types/lottery';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/hooks/use-toast';
@@ -785,41 +785,43 @@ export const SectorLotterySystem = () => {
       </div>
 
       {/* Estatísticas */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5">
-          <CardContent className="pt-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
-            <div className="text-xs text-muted-foreground">Participantes</div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+        <Card className="shadow-soft">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Participantes Elegíveis</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.pcd} PcD, {stats.unique} Vaga Única, {stats.double} Vaga Dupla
+            </p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5">
-          <CardContent className="pt-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">{stats.pcd}</div>
-            <div className="text-xs text-muted-foreground">PcD</div>
+
+        <Card className="shadow-soft">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Vagas Disponíveis</CardTitle>
+            <Car className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-available">{stats.totalSpots}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.pcdSpots} vagas PcD
+            </p>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5">
-          <CardContent className="pt-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{stats.unique}</div>
-            <div className="text-xs text-muted-foreground">Vaga Única</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5">
-          <CardContent className="pt-4 text-center">
-            <div className="text-2xl font-bold text-orange-600">{stats.double}</div>
-            <div className="text-xs text-muted-foreground">Vaga Dupla</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-red-500/10 to-red-600/5">
-          <CardContent className="pt-4 text-center">
-            <div className="text-2xl font-bold text-red-600">{stats.defaulters}</div>
-            <div className="text-xs text-muted-foreground">Inadimplentes</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-slate-500/10 to-slate-600/5">
-          <CardContent className="pt-4 text-center">
-            <div className="text-2xl font-bold text-slate-600">{stats.totalSpots}</div>
-            <div className="text-xs text-muted-foreground">Vagas Totais</div>
+
+        <Card className="shadow-soft">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Inadimplentes</CardTitle>
+            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{stats.defaulters}</div>
+            <p className="text-xs text-muted-foreground">
+              participantes inadimplentes
+            </p>
           </CardContent>
         </Card>
       </div>
