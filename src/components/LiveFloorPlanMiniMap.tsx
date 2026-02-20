@@ -159,6 +159,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
 
   const getSpotLabels = (spot: any): string[] => {
     const labels: string[] = [];
+    const hasCoverage = spot.isCovered || spot.isUncovered;
     if (spot.isCovered) labels.push('Coberta');
     if (spot.isUncovered) labels.push('Descoberta');
     const types: string[] = spot.type || [];
@@ -169,7 +170,8 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
     if (types.includes('Vaga Motocicleta') || types.includes('moto')) labels.push('Moto');
     if (types.includes('Vaga Grande') || types.includes('grande')) labels.push('Grande');
     if (types.includes('Vaga Pequena') || types.includes('pequena')) labels.push('Pequena');
-    if (types.includes('Vaga Comum') || types.includes('comum')) labels.push('Comum');
+    // Comum só aparece se não houver cobertura (Coberta/Descoberta)
+    if ((types.includes('Vaga Comum') || types.includes('comum')) && !hasCoverage) labels.push('Comum');
     return labels;
   };
 
@@ -435,14 +437,14 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
                               label === 'Coberta' && 'bg-blue-500/80',
                               label === 'Descoberta' && 'bg-amber-500/80',
                               label === 'Comum' && 'bg-gray-500/80',
-                              label === 'Presa' && 'bg-purple-500/80',
+                              label === 'Presa' && 'bg-red-500/80',
                               label === 'Livre' && 'bg-teal-500/80',
-                              label === 'Idoso' && 'bg-orange-500/80',
-                              label === 'PCD' && 'bg-blue-700/80',
-                              label === 'Moto' && 'bg-rose-500/80',
-                              label === 'Pequena' && 'bg-cyan-500/80',
+                              label === 'Idoso' && 'bg-sky-400/80',
+                              label === 'PCD' && 'bg-purple-600/80',
+                              label === 'Moto' && 'bg-amber-800/80',
+                              label === 'Pequena' && 'bg-yellow-500/80',
                               label === 'Média' && 'bg-emerald-500/80',
-                              label === 'Grande' && 'bg-indigo-500/80',
+                              label === 'Grande' && 'bg-gray-900/80',
                               label === 'Extra Grande' && 'bg-violet-500/80',
                             )}
                           >
