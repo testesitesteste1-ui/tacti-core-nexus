@@ -2363,7 +2363,7 @@ export const LotterySystem = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[calc(100vh-300px)] pr-4">
+            <ScrollArea className="h-[calc(100vh-200px)] pr-4">
             {/* BOTÕES DE TOGGLE */}
             <div className="mb-4 flex gap-2">
               <Button
