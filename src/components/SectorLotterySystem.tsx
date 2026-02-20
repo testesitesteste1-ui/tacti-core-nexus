@@ -356,11 +356,11 @@ export const SectorLotterySystem = () => {
       let spotFound = false;
 
       for (const sector of sectorPriority) {
-        // Passo 1: Filtrar vagas do setor
+        // Passo 1: Filtrar vagas do setor (incluir vagas sem setor como fallback)
         let sectorSpots = availableSpots.filter(s =>
           !assignedSpotIds.has(s.id) &&
           !isSpotPcD(s) &&
-          getSpotSector(s) === sector
+          (getSpotSector(s) === sector || !getSpotSector(s))
         );
 
         // ✅ CORRIGIDO: Aplicar filtro de coberta/descoberta verificando AMBOS (type[] e booleanos)
@@ -420,7 +420,7 @@ export const SectorLotterySystem = () => {
           let sectorSpots = availableSpots.filter(s =>
             !assignedSpotIds.has(s.id) &&
             !isSpotPcD(s) &&
-            getSpotSector(s) === sector
+            (getSpotSector(s) === sector || !getSpotSector(s))
           );
           
           if (participant.preferredFloors && participant.preferredFloors.length > 0) {
@@ -490,7 +490,7 @@ export const SectorLotterySystem = () => {
           let sectorSpots = availableSpots.filter(s =>
             !assignedSpotIds.has(s.id) &&
             !isSpotPcD(s) &&
-            getSpotSector(s) === sector
+            (getSpotSector(s) === sector || !getSpotSector(s))
           );
 
           // ✅ CORRIGIDO: Aplicar filtro de cobertura verificando AMBOS (type[] e booleanos)
@@ -540,7 +540,7 @@ export const SectorLotterySystem = () => {
             let sectorSpots = availableSpots.filter(s =>
               !assignedSpotIds.has(s.id) &&
               !isSpotPcD(s) &&
-              getSpotSector(s) === sector
+              (getSpotSector(s) === sector || !getSpotSector(s))
             );
 
             if (participant.preferredFloors && participant.preferredFloors.length > 0) {
@@ -969,6 +969,8 @@ export const SectorLotterySystem = () => {
                     <TableHead className="w-12">#</TableHead>
                     <TableHead>Participante</TableHead>
                     <TableHead>Bloco/Unidade</TableHead>
+                    <TableHead>Prioridade</TableHead>
+                    <TableHead>Pref. Setores</TableHead>
                     <TableHead>Vaga</TableHead>
                     <TableHead>Setor</TableHead>
                     <TableHead>Tipo</TableHead>
@@ -977,16 +979,59 @@ export const SectorLotterySystem = () => {
                 <TableBody>
                   {filteredResults.map((result, index) => {
                     const spot = parkingSpots.find(s => s.id === result.parkingSpotId);
+                    const participant = buildingParticipants.find(p => p.id === result.participantId);
                     const spotSector = spot?.sector || '-';
+
+                    // Priority badge (inadimplente mostra como Normal)
+                    const priorityLabel = result.priority === 'special-needs' ? 'PcD' 
+                      : result.priority === 'elderly' ? 'Idoso' 
+                      : 'Normal';
+                    const priorityColor = result.priority === 'special-needs' ? 'bg-purple-500/20 text-purple-700 border-purple-300' 
+                      : result.priority === 'elderly' ? 'bg-orange-500/20 text-orange-700 border-orange-300' 
+                      : 'bg-green-500/20 text-green-700 border-green-300';
+
+                    // Spot type color mapping
+                    const getTypeColor = (type: string) => {
+                      if (type.includes('PcD')) return 'bg-blue-700/20 text-blue-800 border-blue-400';
+                      if (type.includes('Idoso')) return 'bg-orange-500/20 text-orange-700 border-orange-300';
+                      if (type.includes('Motocicleta')) return 'bg-rose-500/20 text-rose-700 border-rose-300';
+                      if (type.includes('Presa')) return 'bg-purple-500/20 text-purple-700 border-purple-300';
+                      if (type.includes('Livre')) return 'bg-teal-500/20 text-teal-700 border-teal-300';
+                      if (type.includes('Grande')) return 'bg-indigo-500/20 text-indigo-700 border-indigo-300';
+                      if (type.includes('Pequena')) return 'bg-cyan-500/20 text-cyan-700 border-cyan-300';
+                      if (type.includes('Coberta')) return 'bg-blue-500/20 text-blue-700 border-blue-300';
+                      if (type.includes('Descoberta')) return 'bg-amber-500/20 text-amber-700 border-amber-300';
+                      if (type.includes('Comum')) return 'bg-green-500/20 text-green-700 border-green-300';
+                      return 'bg-gray-500/20 text-gray-700 border-gray-300';
+                    };
 
                     return (
                       <TableRow key={result.id}>
-                        <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell>{result.participantSnapshot?.name || '-'}</TableCell>
+                        <TableCell className="font-bold text-amber-600">{index + 1}º</TableCell>
+                        <TableCell className="font-medium">{result.participantSnapshot?.name || '-'}</TableCell>
                         <TableCell>
                           <span className="font-medium">{result.participantSnapshot?.block}</span>
                           {' / '}
                           <span>{result.participantSnapshot?.unit}</span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`text-xs ${priorityColor}`}>
+                            {priorityLabel}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {participant?.preferredSectors && participant.preferredSectors.length > 0 ? (
+                            <div className="flex flex-wrap gap-0.5">
+                              {participant.preferredSectors.map((s, i) => (
+                                <span key={s} className="text-[10px] text-muted-foreground">
+                                  {i + 1}°{s.replace('Setor ', '')}
+                                  {i < participant.preferredSectors!.length - 1 ? ', ' : ''}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="font-mono">
@@ -999,11 +1044,13 @@ export const SectorLotterySystem = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {result.spotSnapshot?.type?.map((t, i) => (
-                            <Badge key={i} variant="secondary" className="mr-1 text-xs">
-                              {t}
-                            </Badge>
-                          ))}
+                          <div className="flex flex-wrap gap-1">
+                            {result.spotSnapshot?.type?.map((t, i) => (
+                              <Badge key={i} variant="outline" className={`text-[10px] ${getTypeColor(t)}`}>
+                                {t.replace('Vaga ', '')}
+                              </Badge>
+                            ))}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
