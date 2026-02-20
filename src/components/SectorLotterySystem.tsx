@@ -1016,9 +1016,11 @@ export const SectorLotterySystem = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-0.5">
-                            <Badge variant="outline" className={`text-[10px] ${priorityColor}`}>
-                              {priorityLabel}
-                            </Badge>
+                            {priorityLabel !== 'Normal' && (
+                              <Badge variant="outline" className={`text-[10px] ${priorityColor}`}>
+                                {priorityLabel}
+                              </Badge>
+                            )}
                             {participant?.hasSmallCar && (
                               <Badge variant="outline" className="text-[10px] bg-yellow-500/20 text-yellow-700 border-yellow-400">
                                 Veículo Pequeno
