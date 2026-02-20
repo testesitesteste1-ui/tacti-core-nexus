@@ -1087,10 +1087,10 @@ export const SectorLotterySystem = () => {
                               
                               // Add coverage from snapshot flags if not already in types
                               if (result.spotSnapshot?.isCovered && !types.some(t => t.includes('Coberta'))) {
-                                badges.push({ label: 'Coberta', color: getTypeColor('Coberta') });
+                                badges.push({ label: 'Vaga Coberta', color: getTypeColor('Coberta') });
                               }
                               if (result.spotSnapshot?.isUncovered && !types.some(t => t.includes('Descoberta'))) {
-                                badges.push({ label: 'Descoberta', color: getTypeColor('Descoberta') });
+                                badges.push({ label: 'Vaga Descoberta', color: getTypeColor('Descoberta') });
                               }
                               
                               filteredTypes.forEach(t => {
