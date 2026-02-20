@@ -433,10 +433,28 @@ export const SectorLotterySystem = () => {
       return shuffled;
     };
 
-    // ============ ETAPA 1: PcDs ============
-    console.log('\n♿ ETAPA 1: SORTEIO PcD');
-    setCurrentStep('Etapa 1: Sorteando PcDs...');
-    setProgress(10);
+    /** Ordena participantes por prioridade, sorteando dentro de cada subgrupo */
+    const sortByPriorityWithShuffle = (participants: Participant[]): Participant[] => {
+      const pcd = shuffleArray(participants.filter(p => p.hasSpecialNeeds && !isDefaulter(p)));
+      const elderly = shuffleArray(participants.filter(p => p.isElderly && !p.hasSpecialNeeds && !isDefaulter(p)));
+      const normal = shuffleArray(participants.filter(p => !p.hasSpecialNeeds && !p.isElderly && !isDefaulter(p)));
+      const defaulters = shuffleArray(participants.filter(p => isDefaulter(p)));
+      return [...pcd, ...elderly, ...normal, ...defaulters];
+    };
+
+    // Ordenar setores alfabeticamente
+    const sortedSectors = [...usedSectors].sort();
+    const totalSectors = sortedSectors.length;
+
+    console.log('\n🏢 ========== SORTEIO SETORIAL (POR SETOR) ==========');
+    console.log(`   📊 Setores: ${sortedSectors.join(', ')}`);
+    console.log(`   👥 Total participantes: ${buildingParticipants.length}`);
+    console.log(`   🅿️ Total vagas: ${buildingSpots.length}`);
+
+    // ============ ETAPA 1: PcDs (escolha manual - antes dos setores) ============
+    console.log('\n♿ PRÉ-ETAPA: PcDs COM ESCOLHA MANUAL');
+    setCurrentStep('Pré-etapa: PcDs com escolha manual...');
+    setProgress(5);
 
     const pcdParticipants = shuffleArray(
       buildingParticipants.filter(p => p.hasSpecialNeeds && !isDefaulter(p))
@@ -451,18 +469,15 @@ export const SectorLotterySystem = () => {
         const availablePcdSpots = availableSpots.filter(s => isSpotPcD(s) && !assignedSpotIds.has(s.id));
 
         if (availablePcdSpots.length > 0) {
-          // Sorteia entre vagas PcD disponíveis
           const randomPcdSpot = availablePcdSpots[Math.floor(Math.random() * availablePcdSpots.length)];
           assignSpot(participant, randomPcdSpot, 'pcd-priority');
           console.log(`   ✅ PcD ${participant.name} recebeu vaga PcD ${randomPcdSpot.number}`);
         } else {
-          // 🚨 AQUI: Se não há vaga PcD, PcD ESCOLHE MANUALMENTE
           console.log(`   ⚠️ Sem vagas PcD disponíveis. ${participant.name} vai ESCOLHER manualmente.`);
 
           const normalSpotsAvailable = availableSpots.filter(s => !isSpotPcD(s) && !assignedSpotIds.has(s.id));
 
           if (normalSpotsAvailable.length > 0) {
-            // Pausar sorteio e abrir modal para escolha manual
             const selectedSpotId = await waitForPcdManualSelection(participant, normalSpotsAvailable);
 
             if (selectedSpotId) {
@@ -488,144 +503,130 @@ export const SectorLotterySystem = () => {
 
     await new Promise(r => setTimeout(r, 300));
 
-    // ============ ETAPA 2: Idosos (por setor) ============
-    console.log('\n👴 ETAPA 2: SORTEIO IDOSOS');
-    setCurrentStep('Etapa 2: Sorteando idosos...');
-    setProgress(25);
+    // ============ ETAPA 2: SORTEIO POR SETOR (A, B, C...) ============
+    console.log('\n🏢 ETAPA PRINCIPAL: SORTEIO POR SETOR');
 
-    const elderlyParticipants = shuffleArray(
-      buildingParticipants.filter(p =>
+    for (let sIdx = 0; sIdx < sortedSectors.length; sIdx++) {
+      const sector = sortedSectors[sIdx];
+      const progressBase = 10 + ((sIdx / totalSectors) * 70);
+      setProgress(Math.round(progressBase));
+      setCurrentStep(`Sorteando ${sector}...`);
+
+      console.log(`\n📍 ===== ${sector} =====`);
+
+      // Participantes deste setor (que ainda não foram alocados)
+      const sectorParticipants = buildingParticipants.filter(p =>
         !assignedParticipantIds.has(p.id) &&
-        p.isElderly &&
-        !p.hasSpecialNeeds &&
-        !isDefaulter(p)
-      )
-    );
-    console.log(`   📊 Idosos encontrados: ${elderlyParticipants.length}`);
+        (p.sector === sector || (p.preferredSectors && p.preferredSectors[0] === sector && !p.sector))
+      );
 
-    for (const participant of elderlyParticipants) {
-      const numberOfSpots = Math.max(1, participant.numberOfSpots || 1);
-      const sectors = getSectorPriority(participant);
-      console.log(`   👤 ${participant.name} - Setores: ${sectors.join(' → ')}`);
+      // Vagas deste setor
+      const sectorSpots = availableSpots.filter(s => getSpotSector(s) === sector && !assignedSpotIds.has(s.id));
 
-      for (let i = 0; i < numberOfSpots; i++) {
-        // Idosos tentam primeiro vagas Idoso, depois qualquer vaga
-        const idosoSpots = availableSpots.filter(s => !assignedSpotIds.has(s.id) && isSpotIdoso(s));
-        let spot: ParkingSpot | null = null;
-        if (idosoSpots.length > 0) {
-          // Filtrar por setor preferido
-          for (const sector of sectors) {
-            const sectorIdoso = idosoSpots.filter(s => getSpotSector(s) === sector);
-            if (sectorIdoso.length > 0) {
-              spot = sectorIdoso[Math.floor(Math.random() * sectorIdoso.length)];
-              break;
+      console.log(`   👥 Participantes no setor: ${sectorParticipants.length}`);
+      console.log(`   🅿️ Vagas no setor: ${sectorSpots.length}`);
+
+      // Ordenar: PcD > Idoso > Normal > Inadimplente (sorteio dentro de cada grupo)
+      const orderedParticipants = sortByPriorityWithShuffle(sectorParticipants);
+
+      for (const participant of orderedParticipants) {
+        const numberOfSpots = Math.max(1, participant.numberOfSpots || 1);
+        const alreadyAssigned = newResults.filter(r => r.participantId === participant.id).length;
+        const needed = numberOfSpots - alreadyAssigned;
+
+        for (let i = 0; i < needed; i++) {
+          // Tentar vaga no próprio setor primeiro (strict)
+          let eligible = filterSpotsForParticipant(
+            availableSpots.filter(s => getSpotSector(s) === sector),
+            participant, assignedSpotIds, true
+          );
+
+          // Se não encontrou strict, tentar relaxed no setor
+          if (eligible.length === 0) {
+            eligible = filterSpotsForParticipant(
+              availableSpots.filter(s => getSpotSector(s) === sector),
+              participant, assignedSpotIds, false
+            );
+          }
+
+          // Se não encontrou no setor, tentar vagas sem setor
+          if (eligible.length === 0) {
+            eligible = filterSpotsForParticipant(
+              availableSpots.filter(s => !getSpotSector(s)),
+              participant, assignedSpotIds, false
+            );
+          }
+
+          // Se não encontrou, transbordar para setores próximos
+          if (eligible.length === 0) {
+            const proximitySectors = selectedBuilding?.sectorProximity?.[sector]
+              || config.sectorMapping[sector]
+              || sortedSectors.filter(s => s !== sector);
+
+            for (const proxSector of proximitySectors) {
+              if (proxSector === sector) continue;
+              eligible = filterSpotsForParticipant(
+                availableSpots.filter(s => getSpotSector(s) === proxSector),
+                participant, assignedSpotIds, false
+              );
+              if (eligible.length > 0) {
+                console.log(`      ↗️ ${participant.name}: transbordou para ${proxSector}`);
+                break;
+              }
             }
           }
-          if (!spot) {
-            spot = idosoSpots[Math.floor(Math.random() * idosoSpots.length)];
+
+          // Última chance: qualquer vaga residual
+          if (eligible.length === 0) {
+            eligible = availableSpots.filter(s => {
+              if (assignedSpotIds.has(s.id)) return false;
+              if (participant.hasMotorcycle) return isSpotMotorcycle(s);
+              return !isSpotMotorcycle(s) && !isSpotPcD(s);
+            });
+            if (eligible.length > 0) {
+              console.log(`      ❗ ${participant.name}: alocado em vaga residual`);
+            }
+          }
+
+          if (eligible.length > 0) {
+            const spot = eligible[Math.floor(Math.random() * eligible.length)];
+            assignSpot(participant, spot, `sector-${sector}`);
+          } else {
+            console.log(`   ❌ Sem vaga disponível para ${participant.name}`);
           }
         }
-        if (!spot) {
-          spot = findBestSpot(participant, availableSpots, assignedSpotIds, sectors);
+
+        const assignedCount = newResults.filter(r => r.participantId === participant.id).length;
+        if (assignedCount >= numberOfSpots) {
+          assignedParticipantIds.add(participant.id);
         }
-        if (spot) assignSpot(participant, spot, 'elderly');
       }
 
-      const assignedCount = newResults.filter(r => r.participantId === participant.id).length;
-      if (assignedCount >= Math.max(1, participant.numberOfSpots || 1)) {
-        assignedParticipantIds.add(participant.id);
-      }
+      await new Promise(r => setTimeout(r, 200));
     }
 
-    await new Promise(r => setTimeout(r, 300));
+    // ============ ETAPA 3: Participantes sem setor definido ============
+    console.log('\n🎲 ETAPA FINAL: PARTICIPANTES SEM SETOR');
+    setCurrentStep('Alocando participantes sem setor...');
+    setProgress(85);
 
-    // ============ ETAPA 3: Vaga Única (por setor) ============
-    console.log('\n🎯 ETAPA 3: SORTEIO VAGA ÚNICA (POR SETOR)');
-    setCurrentStep('Etapa 3: Sorteando vagas únicas por setor...');
-    setProgress(40);
-
-    const uniqueParticipants = shuffleArray(
+    const noSectorParticipants = sortByPriorityWithShuffle(
       buildingParticipants.filter(p =>
         !assignedParticipantIds.has(p.id) &&
-        !p.hasSpecialNeeds &&
-        !p.isElderly &&
-        (p.numberOfSpots || 1) === 1 &&
-        !isDefaulter(p)
+        !p.sector &&
+        (!p.preferredSectors || p.preferredSectors.length === 0)
       )
     );
-    console.log(`   📊 Participantes vaga única: ${uniqueParticipants.length}`);
+    console.log(`   📊 Sem setor definido: ${noSectorParticipants.length}`);
 
-    for (const participant of uniqueParticipants) {
-      const sectors = getSectorPriority(participant);
-      console.log(`   👤 ${participant.name} (Bl. ${participant.block}) - Setores: ${sectors.join(' → ')}`);
-
-      const spot = findBestSpot(participant, availableSpots, assignedSpotIds, sectors);
-      if (spot) {
-        assignSpot(participant, spot, 'unique-sector');
-        assignedParticipantIds.add(participant.id);
-      } else {
-        console.log(`   ❌ Sem vaga disponível para ${participant.name}`);
-      }
-    }
-
-    await new Promise(r => setTimeout(r, 300));
-
-    // ============ ETAPA 4: Vaga Dupla ============
-    console.log('\n🚗🚗 ETAPA 4: SORTEIO VAGA DUPLA');
-    setCurrentStep('Etapa 4: Sorteando vagas duplas...');
-    setProgress(60);
-
-    const doubleParticipants = shuffleArray(
-      buildingParticipants.filter(p =>
-        !assignedParticipantIds.has(p.id) &&
-        !p.hasSpecialNeeds &&
-        !p.isElderly &&
-        ((p.numberOfSpots || 1) > 1) &&
-        !isDefaulter(p)
-      )
-    );
-    console.log(`   📊 Participantes vaga dupla: ${doubleParticipants.length}`);
-
-    for (const participant of doubleParticipants) {
-      const numberOfSpots = Math.max(2, participant.numberOfSpots || 2);
-      const sectors = getSectorPriority(participant);
-      console.log(`   👤 ${participant.name} - Precisa de ${numberOfSpots} vagas`);
-
-      for (let i = 0; i < numberOfSpots; i++) {
-        const spot = findBestSpot(participant, availableSpots, assignedSpotIds, sectors);
-        if (spot) assignSpot(participant, spot, 'double-sector');
-      }
-
-      const assignedCount = newResults.filter(r => r.participantId === participant.id).length;
-      if (assignedCount >= numberOfSpots) {
-        assignedParticipantIds.add(participant.id);
-      }
-    }
-
-    await new Promise(r => setTimeout(r, 300));
-
-    // ============ ETAPA 5: Restantes (não inadimplentes) ============
-    console.log('\n🎲 ETAPA 5: SORTEIO RESTANTES');
-    setCurrentStep('Etapa 5: Sorteando restantes...');
-    setProgress(75);
-
-    const remainingParticipants = shuffleArray(
-      buildingParticipants.filter(p =>
-        !assignedParticipantIds.has(p.id) &&
-        !isDefaulter(p)
-      )
-    );
-    console.log(`   📊 Participantes restantes: ${remainingParticipants.length}`);
-
-    for (const participant of remainingParticipants) {
+    for (const participant of noSectorParticipants) {
       const numberOfSpots = Math.max(1, participant.numberOfSpots || 1);
       const alreadyAssigned = newResults.filter(r => r.participantId === participant.id).length;
       const needed = numberOfSpots - alreadyAssigned;
-      const sectors = getSectorPriority(participant);
 
       for (let i = 0; i < needed; i++) {
-        const spot = findBestSpot(participant, availableSpots, assignedSpotIds, sectors);
-        if (spot) assignSpot(participant, spot, 'remaining');
+        const spot = findBestSpot(participant, availableSpots, assignedSpotIds, usedSectors);
+        if (spot) assignSpot(participant, spot, 'no-sector');
       }
 
       const assignedCount = newResults.filter(r => r.participantId === participant.id).length;
@@ -634,37 +635,6 @@ export const SectorLotterySystem = () => {
       }
     }
 
-    await new Promise(r => setTimeout(r, 300));
-
-    // ============ ETAPA 6: Inadimplentes (últimos) ============
-    console.log('\n⚠️ ETAPA 6: SORTEIO INADIMPLENTES');
-    setCurrentStep('Etapa 6: Sorteando inadimplentes...');
-    setProgress(90);
-
-    const defaulterParticipants = shuffleArray(
-      buildingParticipants.filter(p =>
-        !assignedParticipantIds.has(p.id) &&
-        isDefaulter(p)
-      )
-    );
-    console.log(`   📊 Inadimplentes: ${defaulterParticipants.length}`);
-
-    for (const participant of defaulterParticipants) {
-      const numberOfSpots = Math.max(1, participant.numberOfSpots || 1);
-      const alreadyAssigned = newResults.filter(r => r.participantId === participant.id).length;
-      const needed = numberOfSpots - alreadyAssigned;
-      const sectors = getSectorPriority(participant);
-
-      for (let i = 0; i < needed; i++) {
-        const spot = findBestSpot(participant, availableSpots, assignedSpotIds, sectors);
-        if (spot) assignSpot(participant, spot, 'defaulter');
-      }
-
-      const assignedCount = newResults.filter(r => r.participantId === participant.id).length;
-      if (assignedCount >= numberOfSpots) {
-        assignedParticipantIds.add(participant.id);
-      }
-    }
     // ============ FINALIZAÇÃO ============
     console.log('\n🎊 ========== SORTEIO SETORIAL FINALIZADO ==========');
     console.log(`   ✅ Total alocações: ${newResults.length}`);
@@ -720,7 +690,7 @@ export const SectorLotterySystem = () => {
 
     toast({
       title: "Sorteio setorial concluído",
-      description: `${newResults.length} vaga(s) sorteadas em 6 etapas.`,
+      description: `${newResults.length} vaga(s) sorteadas por setor.`,
     });
   };
 
