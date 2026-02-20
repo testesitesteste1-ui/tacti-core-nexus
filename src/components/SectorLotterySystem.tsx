@@ -860,7 +860,7 @@ export const SectorLotterySystem = () => {
           <CardTitle className="text-lg">Vagas por Setor</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className={`grid gap-4 ${usedSectors.length <= 3 ? 'grid-cols-3' : usedSectors.length <= 5 ? 'grid-cols-5' : 'grid-cols-4'}`}>
+          <div className={`grid gap-3 sm:gap-4 ${usedSectors.length <= 3 ? 'grid-cols-2 sm:grid-cols-3' : usedSectors.length <= 5 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'}`}>
             {usedSectors.map((sector, idx) => {
               const colors = ['amber', 'emerald', 'sky', 'purple', 'rose', 'teal', 'indigo', 'orange', 'cyan', 'violet'];
               const color = colors[idx % colors.length];
@@ -942,8 +942,9 @@ export const SectorLotterySystem = () => {
               />
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0 sm:p-6">
             <ScrollArea className="h-[500px]">
+              <div className="min-w-[800px]">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1109,6 +1110,7 @@ export const SectorLotterySystem = () => {
                   })}
                 </TableBody>
               </Table>
+              </div>
             </ScrollArea>
           </CardContent>
         </Card>
