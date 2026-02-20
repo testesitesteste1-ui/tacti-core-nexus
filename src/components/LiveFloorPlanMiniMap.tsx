@@ -192,13 +192,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
       case 'chosen': return 'bg-red-500 border-red-700';
       case 'reserved': return 'bg-blue-500 border-blue-700';
       case 'occupied': return 'bg-orange-500 border-orange-700';
-      default: {
-        if (spot) {
-          const typeColor = getSpotTypeColor(spot);
-          if (typeColor) return typeColor;
-        }
-        return 'bg-green-500 border-green-700';
-      }
+      default: return 'bg-green-500 border-green-700';
     }
   };
 
