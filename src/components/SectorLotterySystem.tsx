@@ -955,7 +955,7 @@ export const SectorLotterySystem = () => {
                     <TableHead>Pref. Setores</TableHead>
                     <TableHead>Vaga Sorteada</TableHead>
                     <TableHead>Setor</TableHead>
-                    <TableHead>Tipo</TableHead>
+                    <TableHead>Tipo da Vaga</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -965,8 +965,8 @@ export const SectorLotterySystem = () => {
                     const spotSector = spot?.sector || '-';
 
                     // Priority badge (inadimplente mostra como Normal)
-                    const priorityLabel = result.priority === 'special-needs' ? 'PcD' 
-                      : result.priority === 'elderly' ? 'Idoso' 
+                    const priorityLabel = result.priority === 'special-needs' ? 'Vaga PcD' 
+                      : result.priority === 'elderly' ? 'Vaga Idoso' 
                       : 'Normal';
                     const priorityColor = result.priority === 'special-needs' ? 'bg-purple-500/20 text-purple-700 border-purple-300' 
                       : result.priority === 'elderly' ? 'bg-sky-400/20 text-sky-700 border-sky-300' 
