@@ -279,26 +279,26 @@ export const ReportsHistory = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 lg:p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-success rounded-lg flex items-center justify-center">
-            <FileText className="h-6 w-6 text-success-foreground" />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-success rounded-lg flex items-center justify-center">
+            <FileText className="h-4 w-4 sm:h-6 sm:w-6 text-success-foreground" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Histórico e Relatório</h1>
-            <p className="text-muted-foreground">Consulte Relatórios e Histórico de Sorteios Realizados</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Histórico e Relatório</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Consulte Relatórios e Histórico de Sorteios Realizados</p>
           </div>
         </div>
 
-        <Button className="gradient-primary text-white shadow-medium" onClick={handleExportData}>
+        <Button className="gradient-primary text-white shadow-medium w-full sm:w-auto" onClick={handleExportData}>
           <Download className="mr-2 h-4 w-4" />
           Exportar Dados
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
         <Card className="shadow-soft">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Sorteios</CardTitle>
@@ -444,7 +444,7 @@ export const ReportsHistory = () => {
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto w-[95vw] sm:w-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Detalhes do Sorteio</span>
@@ -465,7 +465,7 @@ export const ReportsHistory = () => {
           {selectedSession && (
             <div className="space-y-6">
               {/* Summary */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center">

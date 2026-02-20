@@ -1983,15 +1983,15 @@ export default function LotteryChoiceSystem(): JSX.Element {
     // 🎨 RENDER
     // ============================================================================
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-4 lg:p-6 space-y-6">
             {/* Header */}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center justify-between">
                 <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 gradient-primary rounded-lg flex items-center justify-center">
-                        <Shuffle className="h-6 w-6 text-white" />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 gradient-primary rounded-lg flex items-center justify-center">
+                        <Shuffle className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-bold text-foreground">Sorteio por Escolha</h1>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Sorteio por Escolha</h1>
                         <p className="text-sm text-muted-foreground">
                             Sorteie a ordem e distribua as vagas manualmente
                         </p>
@@ -2085,7 +2085,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
