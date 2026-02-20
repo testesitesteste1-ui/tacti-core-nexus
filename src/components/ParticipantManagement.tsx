@@ -1387,20 +1387,15 @@ export const ParticipantManagement = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {participant.sector ? (
-                            <Badge variant="outline" className="text-xs">{participant.sector}</Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
-                          )}
-                          {participant.preferredSectors && participant.preferredSectors.length > 0 && (
-                            <Badge variant="default" className="text-[10px]">
-                              {participant.preferredSectors.length <= 2
-                                ? `Pref: ${participant.preferredSectors.join(' → ')}`
-                                : `Pref: ${participant.preferredSectors.length} setores`}
-                            </Badge>
-                          )}
-                        </div>
+                        {participant.sector ? (
+                          <Badge variant="outline" className="text-xs">{participant.sector}</Badge>
+                        ) : participant.preferredSectors && participant.preferredSectors.length > 0 ? (
+                          <Badge variant="outline" className="text-xs">
+                            {participant.preferredSectors[0]}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {participant.groupId ? (
