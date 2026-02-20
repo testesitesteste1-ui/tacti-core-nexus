@@ -401,12 +401,6 @@ export const ParticipantManagement = () => {
         : `Andares: ${participant.preferredFloors.length} selecionados`;
       badges.push({ label: floorsLabel, variant: 'floor' });
     }
-    if (participant.preferredSectors && participant.preferredSectors.length > 0) {
-      const sectorsLabel = participant.preferredSectors.length <= 2
-        ? `Setores: ${participant.preferredSectors.join(' → ')}`
-        : `Setores: ${participant.preferredSectors.length} em ordem`;
-      badges.push({ label: sectorsLabel, variant: 'default' });
-    }
     return badges;
   };
 
@@ -1393,11 +1387,20 @@ export const ParticipantManagement = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {participant.sector ? (
-                          <Badge variant="outline" className="text-xs">{participant.sector}</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {participant.sector ? (
+                            <Badge variant="outline" className="text-xs">{participant.sector}</Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                          {participant.preferredSectors && participant.preferredSectors.length > 0 && (
+                            <Badge variant="default" className="text-[10px]">
+                              {participant.preferredSectors.length <= 2
+                                ? `Pref: ${participant.preferredSectors.join(' → ')}`
+                                : `Pref: ${participant.preferredSectors.length} setores`}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {participant.groupId ? (
