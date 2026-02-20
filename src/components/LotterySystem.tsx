@@ -2273,16 +2273,6 @@ export const LotterySystem = () => {
             )}
           </Button>
 
-          {/* Botões de teste */}
-          <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 border-t sm:border-t-0 sm:border-l pt-2 sm:pt-0 sm:pl-2">
-            <Button
-              onClick={generateTestData}
-              variant="secondary"
-              className="w-full sm:w-auto text-xs"
-            >
-              🧪 Gerar Dados Teste
-            </Button>
-          </div>
         </div>
       </div>
 
