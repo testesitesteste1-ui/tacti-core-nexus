@@ -1268,6 +1268,7 @@ export const LotterySystem = () => {
   const [selectedPreParticipant, setSelectedPreParticipant] = useState<string>('');
   const [selectedPreSpot, setSelectedPreSpot] = useState<string>('');
 
+  const resultsRef = useRef<HTMLDivElement>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -1583,6 +1584,7 @@ export const LotterySystem = () => {
 
       setIsRunning(false);
       setShowResults(true);
+      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
 
       // Salvar sessão
       const sessionId = `session-${Date.now()}`;
@@ -2350,7 +2352,7 @@ export const LotterySystem = () => {
 
       {/* Results */}
       {showResults && results.length > 0 && (
-        <Card className="shadow-soft">
+        <Card ref={resultsRef} className="shadow-soft">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Trophy className="h-5 w-5 text-success" />
