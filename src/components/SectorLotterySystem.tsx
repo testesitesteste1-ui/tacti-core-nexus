@@ -90,7 +90,7 @@ export const SectorLotterySystem = () => {
 
   // Configuração de mapeamento de setores (inicializar com setores em uso)
   const [config, setConfig] = useState<SectorLotteryConfig>({
-    sessionName: `Sorteio Setorial ${new Date().toLocaleDateString('pt-BR')}`,
+    sessionName: `SORTEIO SETORIAL ${new Date().toLocaleDateString('pt-BR')}`,
     sectorMapping: {},
   });
 

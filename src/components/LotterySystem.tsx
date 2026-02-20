@@ -1279,7 +1279,7 @@ export const LotterySystem = () => {
   const [viewMode, setViewMode] = useState<'participant' | 'spot'>('participant');
 
   const [config, setConfig] = useState({
-    sessionName: `Sorteio ${new Date().toLocaleDateString('pt-BR')}`,
+    sessionName: `SORTEIO GERAL ${new Date().toLocaleDateString('pt-BR')}`,
     prioritizeElders: true,
     prioritizeSpecialNeeds: true,
   });
