@@ -971,7 +971,7 @@ export const SectorLotterySystem = () => {
                     <TableHead>Bloco/Unidade</TableHead>
                     <TableHead>Prioridade</TableHead>
                     <TableHead>Pref. Setores</TableHead>
-                    <TableHead>Vaga</TableHead>
+                    <TableHead>Vaga Sorteada</TableHead>
                     <TableHead>Setor</TableHead>
                     <TableHead>Tipo</TableHead>
                   </TableRow>
@@ -1023,10 +1023,9 @@ export const SectorLotterySystem = () => {
                           {participant?.preferredSectors && participant.preferredSectors.length > 0 ? (
                             <div className="flex flex-wrap gap-0.5">
                               {participant.preferredSectors.map((s, i) => (
-                                <span key={s} className="text-[10px] text-muted-foreground">
-                                  {i + 1}°{s.replace('Setor ', '')}
-                                  {i < participant.preferredSectors!.length - 1 ? ', ' : ''}
-                                </span>
+                                <Badge key={s} variant="outline" className="text-[10px] bg-white">
+                                  {i + 1}° {s.replace('Setor ', '')}
+                                </Badge>
                               ))}
                             </div>
                           ) : (
@@ -1034,9 +1033,14 @@ export const SectorLotterySystem = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="font-mono">
-                            {result.spotSnapshot?.number || '-'}
-                          </Badge>
+                          <div className="flex flex-col">
+                            <Badge variant="outline" className="font-mono">
+                              {result.spotSnapshot?.number || '-'}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground mt-0.5">
+                              {result.spotSnapshot?.floor || ''}
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
