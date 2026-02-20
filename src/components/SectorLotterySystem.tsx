@@ -1091,11 +1091,34 @@ export const SectorLotterySystem = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {result.spotSnapshot?.type?.map((t, i) => (
-                              <Badge key={i} variant="outline" className={`text-[10px] ${getTypeColor(t)}`}>
-                                {t.replace('Vaga ', '')}
-                              </Badge>
-                            ))}
+                            {(() => {
+                              const types = result.spotSnapshot?.type || [];
+                              const hasCoverage = types.some(t => t.includes('Coberta') || t.includes('Descoberta')) 
+                                || result.spotSnapshot?.isCovered || result.spotSnapshot?.isUncovered;
+                              const filteredTypes = hasCoverage 
+                                ? types.filter(t => !t.includes('Comum'))
+                                : types;
+                              
+                              const badges: { label: string; color: string }[] = [];
+                              
+                              // Add coverage from snapshot flags if not already in types
+                              if (result.spotSnapshot?.isCovered && !types.some(t => t.includes('Coberta'))) {
+                                badges.push({ label: 'Coberta', color: getTypeColor('Coberta') });
+                              }
+                              if (result.spotSnapshot?.isUncovered && !types.some(t => t.includes('Descoberta'))) {
+                                badges.push({ label: 'Descoberta', color: getTypeColor('Descoberta') });
+                              }
+                              
+                              filteredTypes.forEach(t => {
+                                badges.push({ label: t.replace('Vaga ', ''), color: getTypeColor(t) });
+                              });
+                              
+                              return badges.map((b, i) => (
+                                <Badge key={i} variant="outline" className={`text-[10px] ${b.color}`}>
+                                  {b.label}
+                                </Badge>
+                              ));
+                            })()}
                           </div>
                         </TableCell>
                       </TableRow>
