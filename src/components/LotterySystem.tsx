@@ -2361,6 +2361,7 @@ export const LotterySystem = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <ScrollArea className="h-[calc(100vh-300px)] pr-4">
             {/* BOTÕES DE TOGGLE */}
             <div className="mb-4 flex gap-2">
               <Button
@@ -2394,7 +2395,6 @@ export const LotterySystem = () => {
                 className="max-w-md"
               />
             </div>
-            <ScrollArea className="h-[600px] pr-4">
               <div className="space-y-4">
                 {viewMode === 'participant' ? (
                   // ========== VISUALIZAÇÃO POR MORADOR ==========
