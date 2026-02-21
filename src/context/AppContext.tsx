@@ -565,7 +565,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Lottery session methods
-  const saveLotterySession = (session: LotterySession) => {
+  const saveLotterySession = async (session: LotterySession) => {
     setLotterySessions(prev => {
       const existing = prev.find(s => s.id === session.id);
       if (existing) {
@@ -573,6 +573,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return [...prev, session];
     });
+
+    // Salvar diretamente no Firebase para evitar race condition com isLoadingFromFirebase
+    if (selectedBuilding?.id) {
+      try {
+        const sessionToSave = sanitizeForFirebase({
+          ...session,
+          date: session.date instanceof Date ? session.date.toISOString() : session.date,
+          results: session.results.map(r => ({
+            ...r,
+            timestamp: r.timestamp instanceof Date ? r.timestamp.toISOString() : r.timestamp,
+          })),
+        });
+        await set(ref(database, `buildings/${selectedBuilding.id}/lotterySessions/${session.id}`), sessionToSave);
+        console.log('✅ Sessão salva diretamente no Firebase:', session.id);
+      } catch (error) {
+        console.error('❌ Erro ao salvar sessão diretamente:', error);
+      }
+    }
   };
 
   const updateLotterySession = (updatedSession: LotterySession) => {
