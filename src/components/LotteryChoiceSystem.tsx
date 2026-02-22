@@ -731,7 +731,9 @@ export default function LotteryChoiceSystem(): JSX.Element {
         if (allDone) {
             // Finalizar e salvar resultados públicos
             setSessionFinalized(true);
-            saveChoiceResultsToPublic(updatedOrder.filter(p => p.allocatedSpots.length > 0));
+            const participantsWithSpots = updatedOrder.filter(p => p.allocatedSpots.length > 0);
+            saveChoiceSessionToHistory(participantsWithSpots);
+            saveChoiceResultsToPublic(participantsWithSpots);
             
             toast({
                 title: "Sorteio Finalizado! 🎉",
@@ -982,6 +984,7 @@ export default function LotteryChoiceSystem(): JSX.Element {
         
         // Filtrar apenas participantes que receberam vagas
         const participantsWithSpots = drawnOrder.filter(p => p.allocatedSpots.length > 0);
+        saveChoiceSessionToHistory(participantsWithSpots);
         saveChoiceResultsToPublic(participantsWithSpots);
 
         // 📡 Atualizar o live para remover ausentes sem vagas da visualização
