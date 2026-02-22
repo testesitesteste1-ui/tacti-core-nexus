@@ -1,4 +1,4 @@
-import { Settings, Shuffle, MapPin, ArrowRight } from "lucide-react";
+import { Settings, Shuffle, MapPin, ArrowRight, Layers } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -33,6 +33,15 @@ const lotteries = [
     gradient: "from-emerald-500 to-teal-600",
     bgAccent: "bg-emerald-50 dark:bg-emerald-950/30",
     iconColor: "text-emerald-600 dark:text-emerald-400",
+  },
+  {
+    id: "triple-lottery",
+    title: "Sorteio Vaga Tripla",
+    description: "Cada participante escolhe múltiplas vagas (2 conjugadas + 1 separada) na ordem sorteada. Prioridade para PcDs com pré-alocação.",
+    icon: Layers,
+    gradient: "from-violet-500 to-purple-700",
+    bgAccent: "bg-violet-50 dark:bg-violet-950/30",
+    iconColor: "text-violet-600 dark:text-violet-400",
   },
 ];
 

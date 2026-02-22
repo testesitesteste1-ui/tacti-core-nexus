@@ -6,6 +6,7 @@ import { ParkingManagement } from '@/components/ParkingManagement';
 import { LotterySystem } from '@/components/LotterySystem';
 import { SectorLotterySystem } from '@/components/SectorLotterySystem';
 import LotteryChoiceSystem from '@/components/LotteryChoiceSystem';
+import TripleLotterySystem from '@/components/TripleLotterySystem';
 import { LotteryHub } from '@/components/LotteryHub';
 import { FloorPlanEditor } from '@/components/FloorPlanEditor';
 import { ReportsHistory } from '@/components/ReportsHistory';
@@ -63,6 +64,8 @@ const Index = () => {
         return <LotteryChoiceSystem />;
       case 'sector-lottery':
         return <SectorLotterySystem />;
+      case 'triple-lottery':
+        return <TripleLotterySystem />;
       case 'reports':
       case 'history':
         return <ReportsHistory />;
