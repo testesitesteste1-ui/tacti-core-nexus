@@ -1,4 +1,4 @@
-import { Car, Users, Settings, FileText, BarChart3, Home, Map, Menu, X, LogOut, Shield, MapPin, Shuffle } from "lucide-react";
+import { Car, Users, Settings, FileText, BarChart3, Home, Map, Menu, X, LogOut, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -37,9 +37,7 @@ const NavigationContent = ({
       'participants': 'canViewParticipants',
       'parking': 'canViewParkingSpots',
       'map': 'canViewMap',
-      'lottery': 'canViewLottery',
-      'choice-lottery': 'canViewLottery', // ✅ ADICIONE ESTA LINHA (mesma permissão do sorteio normal)
-      'sector-lottery': 'canViewLottery',
+      'lotteries': 'canViewLottery',
       'history': 'canViewHistory',
     };
     
@@ -148,9 +146,7 @@ const navigationItems = [
   { id: "participants", label: "Participantes/Unidades", icon: Users },
   { id: "parking", label: "Vagas", icon: Car },
   { id: "map", label: "Planta Digital", icon: Map },
-  { id: "lottery", label: "Sorteio Geral", icon: Settings },
-  { id: "choice-lottery", label: "Sorteio por Escolha", icon: Shuffle }, // ✅ ADICIONE ESTA LINHA
-  { id: "sector-lottery", label: "Sorteio por Setor", icon: MapPin },
+  { id: "lotteries", label: "Sorteios", icon: Settings },
   { id: "history", label: "Histórico", icon: BarChart3 },
 ];
 
