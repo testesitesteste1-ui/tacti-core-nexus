@@ -894,7 +894,7 @@ export const SectorLotterySystem = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0 sm:p-6">
-            <ScrollArea className="h-[500px]">
+            <ScrollArea className="h-[calc(100vh-200px)]">
               <div className="min-w-[800px]">
               <Table>
                 <TableHeader>
