@@ -703,6 +703,87 @@ export const ParticipantManagement = () => {
                 </div>
               </div>
 
+              {/* Sequência de Preferência de Setores */}
+              <div className="space-y-2">
+                <Label>Preferência de Setores (ordem de prioridade)</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Selecione os setores na ordem de preferência. Use as setas para reordenar.
+                </p>
+                <div className="flex gap-2 flex-wrap mb-2">
+                  {AVAILABLE_SECTORS
+                    .filter(s => !formData.preferredSectors.includes(s))
+                    .map(sector => (
+                      <Button
+                        key={sector}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => setFormData({
+                          ...formData,
+                          preferredSectors: [...formData.preferredSectors, sector]
+                        })}
+                      >
+                        + {sector}
+                      </Button>
+                    ))}
+                </div>
+                {formData.preferredSectors.length > 0 && (
+                  <div className="space-y-1 border rounded-md p-2">
+                    {formData.preferredSectors.map((sector, index) => (
+                      <div key={sector} className="flex items-center justify-between bg-muted/50 rounded px-2 py-1">
+                        <span className="text-sm flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">{index + 1}º</Badge>
+                          {sector}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            disabled={index === 0}
+                            onClick={() => {
+                              const arr = [...formData.preferredSectors];
+                              [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
+                              setFormData({ ...formData, preferredSectors: arr });
+                            }}
+                          >
+                            <ArrowUp className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            disabled={index === formData.preferredSectors.length - 1}
+                            onClick={() => {
+                              const arr = [...formData.preferredSectors];
+                              [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
+                              setFormData({ ...formData, preferredSectors: arr });
+                            }}
+                          >
+                            <ArrowDown className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-destructive"
+                            onClick={() => setFormData({
+                              ...formData,
+                              preferredSectors: formData.preferredSectors.filter((_, i) => i !== index)
+                            })}
+                          >
+                            <XCircle className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="numberOfSpots">Número de Vagas</Label>
                 <p className="text-xs text-muted-foreground mb-2">
@@ -1294,15 +1375,21 @@ export const ParticipantManagement = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {participant.sector ? (
-                          <Badge variant="outline" className="text-xs">{participant.sector}</Badge>
-                        ) : participant.preferredSectors && participant.preferredSectors.length > 0 ? (
-                          <Badge variant="outline" className="text-xs">
-                            {participant.preferredSectors[0]}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
+                        <div className="flex flex-wrap gap-1">
+                          {participant.sector && (
+                            <Badge variant="default" className="text-xs">{participant.sector}</Badge>
+                          )}
+                          {participant.preferredSectors && participant.preferredSectors.length > 0 && (
+                            participant.preferredSectors.map((s, i) => (
+                              <Badge key={s} variant="outline" className="text-xs">
+                                {i + 1}º {s}
+                              </Badge>
+                            ))
+                          )}
+                          {!participant.sector && (!participant.preferredSectors || participant.preferredSectors.length === 0) && (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {participant.groupId ? (
