@@ -5,7 +5,8 @@ import { ParticipantManagement } from '@/components/ParticipantManagement';
 import { ParkingManagement } from '@/components/ParkingManagement';
 import { LotterySystem } from '@/components/LotterySystem';
 import { SectorLotterySystem } from '@/components/SectorLotterySystem';
-import LotteryChoiceSystem from '@/components/LotteryChoiceSystem'; // ✅ ADICIONE ESTA LINHA
+import LotteryChoiceSystem from '@/components/LotteryChoiceSystem';
+import { LotteryHub } from '@/components/LotteryHub';
 import { FloorPlanEditor } from '@/components/FloorPlanEditor';
 import { ReportsHistory } from '@/components/ReportsHistory';
 import { BuildingSelector } from '@/components/BuildingSelector';
@@ -54,9 +55,11 @@ const Index = () => {
         return <ParkingManagement />;
       case 'map':
         return <FloorPlanEditor />;
+      case 'lotteries':
+        return <LotteryHub onSelectLottery={setCurrentView} />;
       case 'lottery':
         return <LotterySystem />;
-      case 'choice-lottery':  // ✅ ADICIONE ESTE CASE
+      case 'choice-lottery':
         return <LotteryChoiceSystem />;
       case 'sector-lottery':
         return <SectorLotterySystem />;
