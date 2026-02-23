@@ -182,11 +182,40 @@ async function runTripleAllocation(
     const currentAvailable = availableSpots.filter(s => !assignedSpotIds.has(s.id));
     const linkedPairs = findLinkedPairs(currentAvailable);
 
-    // Preferir dupla no andar preferido
     let bestPair: ParkingSpot[] | null = null;
     let pairFloor = '';
 
-    if (participant.preferredFloors && participant.preferredFloors.length > 0) {
+    // PRIORIDADE 1: Respeitar groupId do participante → buscar vagas com mesmo groupId
+    if (participant.groupId) {
+      const spotsWithSameGroup = currentAvailable.filter(s => s.groupId === participant.groupId);
+      if (spotsWithSameGroup.length >= 2) {
+        // Pegar as 2 primeiras vagas do grupo como dupla conjugada
+        bestPair = spotsWithSameGroup.slice(0, 2);
+        pairFloor = bestPair[0].floor;
+        notes.push(`Dupla do grupo ${participant.groupId} (${pairFloor})`);
+      } else if (spotsWithSameGroup.length === 1) {
+        // Só tem 1 vaga do grupo, buscar par adjacente no mesmo andar
+        const singleGroupSpot = spotsWithSameGroup[0];
+        const adjacentOnFloor = currentAvailable.filter(s =>
+          s.id !== singleGroupSpot.id && s.floor === singleGroupSpot.floor
+        ).sort((a, b) => a.number.localeCompare(b.number, 'pt-BR', { numeric: true }));
+
+        const numSingle = parseInt(singleGroupSpot.number.replace(/\D/g, ''));
+        const adjacent = adjacentOnFloor.find(s => {
+          const num = parseInt(s.number.replace(/\D/g, ''));
+          return Math.abs(num - numSingle) <= 1;
+        });
+
+        if (adjacent) {
+          bestPair = [singleGroupSpot, adjacent];
+          pairFloor = singleGroupSpot.floor;
+          notes.push(`1 vaga do grupo + 1 adjacente (${pairFloor})`);
+        }
+      }
+    }
+
+    // PRIORIDADE 2: Dupla no andar preferido
+    if (!bestPair && participant.preferredFloors && participant.preferredFloors.length > 0) {
       const pairOnPreferredFloor = linkedPairs.find(lp =>
         participant.preferredFloors!.includes(lp.floor)
       );
@@ -197,8 +226,8 @@ async function runTripleAllocation(
       }
     }
 
+    // PRIORIDADE 3: Qualquer dupla disponível
     if (!bestPair && linkedPairs.length > 0) {
-      // Pegar qualquer dupla disponível (aleatoriamente)
       const randomIdx = Math.floor(Math.random() * linkedPairs.length);
       bestPair = linkedPairs[randomIdx].pair;
       pairFloor = linkedPairs[randomIdx].floor;
@@ -272,8 +301,15 @@ async function runTripleAllocation(
       for (let s = 0; s < spotsRemaining; s++) {
         const stillAvailable = availableSpots.filter(sp => !assignedSpotIds.has(sp.id));
 
+        let spot: ParkingSpot | undefined;
+
+        // Prioridade: vaga do mesmo groupId do participante
+        if (participant.groupId) {
+          spot = stillAvailable.find(sp => sp.groupId === participant.groupId);
+        }
+
         // Preferir mesmo andar da dupla
-        let spot = stillAvailable.find(sp => sp.floor === pairFloor);
+        if (!spot) spot = stillAvailable.find(sp => sp.floor === pairFloor);
 
         if (!spot && participant.preferredFloors?.length) {
           spot = stillAvailable.find(sp => participant.preferredFloors!.includes(sp.floor));
