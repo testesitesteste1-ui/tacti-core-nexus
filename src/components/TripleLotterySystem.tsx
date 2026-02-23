@@ -178,18 +178,120 @@ async function runTripleAllocation(
     let linkedPair: ParkingSpot[] = [];
     let separateSpot: ParkingSpot | null = null;
 
-    // Passo 1: Buscar vagas — PRIORIDADE MÁXIMA: grupo completo de 3 vagas com mesmo groupId
+    // Passo 1: Buscar vagas — PRIORIDADE MÁXIMA: grupo completo de 3 vagas vinculadas
     const currentAvailable = availableSpots.filter(s => !assignedSpotIds.has(s.id));
 
     let pairFloor = '';
     let fullGroupAllocated = false;
 
-    // PRIORIDADE 0: Grupo completo de 3 vagas com mesmo groupId do participante
+    // Função auxiliar: encontrar grupo de 3 vagas mutuamente vinculadas (via linkedSpotIds ou groupId)
+    const findTripleGroup = (spots: ParkingSpot[]): ParkingSpot[][] => {
+      const groups: ParkingSpot[][] = [];
+      const visited = new Set<string>();
+
+      for (const spot of spots) {
+        if (visited.has(spot.id)) continue;
+        
+        // Verificar linkedSpotIds — se a vaga lista 2 outras vagas, temos um trio
+        if (spot.linkedSpotIds && spot.linkedSpotIds.length >= 2) {
+          const linkedIds = spot.linkedSpotIds;
+          const linkedSpots = linkedIds
+            .map(id => spots.find(s => s.id === id))
+            .filter((s): s is ParkingSpot => s !== undefined && !visited.has(s.id));
+          
+          if (linkedSpots.length >= 2) {
+            const trio = [spot, linkedSpots[0], linkedSpots[1]];
+            trio.forEach(s => visited.add(s.id));
+            groups.push(trio);
+          }
+        }
+      }
+
+      // Também verificar por groupId (grupos de 3+ com mesmo groupId)
+      const byGroupId: Record<string, ParkingSpot[]> = {};
+      for (const spot of spots) {
+        if (visited.has(spot.id) || !spot.groupId) continue;
+        if (!byGroupId[spot.groupId]) byGroupId[spot.groupId] = [];
+        byGroupId[spot.groupId].push(spot);
+      }
+      for (const gid of Object.keys(byGroupId)) {
+        if (byGroupId[gid].length >= 3) {
+          const trio = byGroupId[gid].slice(0, 3);
+          trio.forEach(s => visited.add(s.id));
+          groups.push(trio);
+        }
+      }
+
+      return groups;
+    };
+
+    const tripleGroups = findTripleGroup(currentAvailable);
+
+    // PRIORIDADE 0: Participante tem groupId → buscar grupo de 3 que contenha vagas com esse groupId ou linkedSpotIds
     if (participant.groupId) {
-      const spotsWithSameGroup = currentAvailable.filter(s => s.groupId === participant.groupId);
+      // Buscar trio que contenha vagas do groupId do participante
+      const matchingTriple = tripleGroups.find(trio =>
+        trio.some(s => s.groupId === participant.groupId)
+      );
+
+      if (matchingTriple) {
+        matchingTriple.forEach(s => {
+          assignedSpotIds.add(s.id);
+          allocatedSpots.push(s);
+        });
+        linkedPair = matchingTriple.slice(0, 2);
+        separateSpot = matchingTriple[2] || null;
+        pairFloor = matchingTriple[0].floor;
+        notes.push(`Grupo completo: ${matchingTriple.map(s => s.number).join(', ')} (${pairFloor})`);
+        fullGroupAllocated = true;
+      }
+    }
+
+    // PRIORIDADE 0b: Mesmo sem groupId do participante, buscar qualquer trio de vagas vinculadas via linkedSpotIds
+    if (!fullGroupAllocated && spotsNeeded >= 3) {
+      // Buscar trio que tenha vagas vinculadas entre si (linkedSpotIds)
+      const anyLinkedTriple = tripleGroups.find(trio =>
+        trio.every(s => !assignedSpotIds.has(s.id))
+      );
+
+      // Se participante tem preferência de andar, priorizar trio nesse andar
+      if (participant.preferredFloors?.length) {
+        const preferredTriple = tripleGroups.find(trio =>
+          trio.every(s => !assignedSpotIds.has(s.id)) &&
+          participant.preferredFloors!.includes(trio[0].floor)
+        );
+        if (preferredTriple) {
+          preferredTriple.forEach(s => {
+            assignedSpotIds.add(s.id);
+            allocatedSpots.push(s);
+          });
+          linkedPair = preferredTriple.slice(0, 2);
+          separateSpot = preferredTriple[2] || null;
+          pairFloor = preferredTriple[0].floor;
+          notes.push(`Trio vinculado no andar preferido: ${preferredTriple.map(s => s.number).join(', ')} (${pairFloor})`);
+          fullGroupAllocated = true;
+        }
+      }
+
+      // Senão, qualquer trio disponível
+      if (!fullGroupAllocated && anyLinkedTriple) {
+        anyLinkedTriple.forEach(s => {
+          assignedSpotIds.add(s.id);
+          allocatedSpots.push(s);
+        });
+        linkedPair = anyLinkedTriple.slice(0, 2);
+        separateSpot = anyLinkedTriple[2] || null;
+        pairFloor = anyLinkedTriple[0].floor;
+        notes.push(`Trio vinculado: ${anyLinkedTriple.map(s => s.number).join(', ')} (${pairFloor})`);
+        fullGroupAllocated = true;
+      }
+    }
+
+    // PRIORIDADE 0c: Fallback com groupId simples (sem linkedSpotIds)
+    if (!fullGroupAllocated && participant.groupId) {
+      const spotsWithSameGroup = currentAvailable.filter(s => s.groupId === participant.groupId && !assignedSpotIds.has(s.id));
       
       if (spotsWithSameGroup.length >= spotsNeeded) {
-        // Grupo completo encontrado! Alocar todas as vagas do grupo
         const groupSpots = spotsWithSameGroup.slice(0, spotsNeeded);
         groupSpots.forEach(s => {
           assignedSpotIds.add(s.id);
@@ -198,35 +300,21 @@ async function runTripleAllocation(
         linkedPair = groupSpots.slice(0, 2);
         separateSpot = groupSpots[2] || null;
         pairFloor = groupSpots[0].floor;
-        notes.push(`Grupo completo ${participant.groupId}: ${groupSpots.map(s => s.number).join(', ')} (${pairFloor})`);
+        notes.push(`Grupo ${participant.groupId}: ${groupSpots.map(s => s.number).join(', ')} (${pairFloor})`);
         fullGroupAllocated = true;
       } else if (spotsWithSameGroup.length >= 2) {
-        // Tem pelo menos 2 do grupo — usar como dupla, buscar 3ª depois
-        const groupSpots = spotsWithSameGroup.slice(0, 2);
-        groupSpots.forEach(s => {
+        spotsWithSameGroup.slice(0, 2).forEach(s => {
           assignedSpotIds.add(s.id);
           allocatedSpots.push(s);
         });
-        linkedPair = groupSpots;
-        pairFloor = groupSpots[0].floor;
+        linkedPair = spotsWithSameGroup.slice(0, 2);
+        pairFloor = spotsWithSameGroup[0].floor;
         notes.push(`Dupla do grupo ${participant.groupId} (${pairFloor})`);
-        
-        // Tentar pegar a 3ª vaga do grupo também
-        if (spotsWithSameGroup.length > 2) {
-          const thirdSpot = spotsWithSameGroup[2];
-          assignedSpotIds.add(thirdSpot.id);
-          allocatedSpots.push(thirdSpot);
-          separateSpot = thirdSpot;
-          notes.push(`3ª vaga do grupo ${participant.groupId}`);
-          fullGroupAllocated = true;
-        }
       } else if (spotsWithSameGroup.length === 1) {
-        // Só 1 vaga do grupo — usar e buscar adjacentes
-        const singleGroupSpot = spotsWithSameGroup[0];
-        assignedSpotIds.add(singleGroupSpot.id);
-        allocatedSpots.push(singleGroupSpot);
-        linkedPair.push(singleGroupSpot);
-        pairFloor = singleGroupSpot.floor;
+        assignedSpotIds.add(spotsWithSameGroup[0].id);
+        allocatedSpots.push(spotsWithSameGroup[0]);
+        linkedPair.push(spotsWithSameGroup[0]);
+        pairFloor = spotsWithSameGroup[0].floor;
         notes.push(`1 vaga do grupo ${participant.groupId}`);
       }
     }
