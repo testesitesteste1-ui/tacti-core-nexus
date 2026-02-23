@@ -178,158 +178,200 @@ async function runTripleAllocation(
     let linkedPair: ParkingSpot[] = [];
     let separateSpot: ParkingSpot | null = null;
 
-    // Passo 1: Encontrar dupla conjugada
+    // Passo 1: Buscar vagas — PRIORIDADE MÁXIMA: grupo completo de 3 vagas com mesmo groupId
     const currentAvailable = availableSpots.filter(s => !assignedSpotIds.has(s.id));
-    const linkedPairs = findLinkedPairs(currentAvailable);
 
-    let bestPair: ParkingSpot[] | null = null;
     let pairFloor = '';
+    let fullGroupAllocated = false;
 
-    // PRIORIDADE 1: Respeitar groupId do participante → buscar vagas com mesmo groupId
+    // PRIORIDADE 0: Grupo completo de 3 vagas com mesmo groupId do participante
     if (participant.groupId) {
       const spotsWithSameGroup = currentAvailable.filter(s => s.groupId === participant.groupId);
-      if (spotsWithSameGroup.length >= 2) {
-        // Pegar as 2 primeiras vagas do grupo como dupla conjugada
-        bestPair = spotsWithSameGroup.slice(0, 2);
-        pairFloor = bestPair[0].floor;
+      
+      if (spotsWithSameGroup.length >= spotsNeeded) {
+        // Grupo completo encontrado! Alocar todas as vagas do grupo
+        const groupSpots = spotsWithSameGroup.slice(0, spotsNeeded);
+        groupSpots.forEach(s => {
+          assignedSpotIds.add(s.id);
+          allocatedSpots.push(s);
+        });
+        linkedPair = groupSpots.slice(0, 2);
+        separateSpot = groupSpots[2] || null;
+        pairFloor = groupSpots[0].floor;
+        notes.push(`Grupo completo ${participant.groupId}: ${groupSpots.map(s => s.number).join(', ')} (${pairFloor})`);
+        fullGroupAllocated = true;
+      } else if (spotsWithSameGroup.length >= 2) {
+        // Tem pelo menos 2 do grupo — usar como dupla, buscar 3ª depois
+        const groupSpots = spotsWithSameGroup.slice(0, 2);
+        groupSpots.forEach(s => {
+          assignedSpotIds.add(s.id);
+          allocatedSpots.push(s);
+        });
+        linkedPair = groupSpots;
+        pairFloor = groupSpots[0].floor;
         notes.push(`Dupla do grupo ${participant.groupId} (${pairFloor})`);
+        
+        // Tentar pegar a 3ª vaga do grupo também
+        if (spotsWithSameGroup.length > 2) {
+          const thirdSpot = spotsWithSameGroup[2];
+          assignedSpotIds.add(thirdSpot.id);
+          allocatedSpots.push(thirdSpot);
+          separateSpot = thirdSpot;
+          notes.push(`3ª vaga do grupo ${participant.groupId}`);
+          fullGroupAllocated = true;
+        }
       } else if (spotsWithSameGroup.length === 1) {
-        // Só tem 1 vaga do grupo, buscar par adjacente no mesmo andar
+        // Só 1 vaga do grupo — usar e buscar adjacentes
         const singleGroupSpot = spotsWithSameGroup[0];
+        assignedSpotIds.add(singleGroupSpot.id);
+        allocatedSpots.push(singleGroupSpot);
+        linkedPair.push(singleGroupSpot);
+        pairFloor = singleGroupSpot.floor;
+        notes.push(`1 vaga do grupo ${participant.groupId}`);
+      }
+    }
+
+    // Se o grupo completo já foi alocado, pular para o próximo participante
+    if (!fullGroupAllocated) {
+      const linkedPairs = findLinkedPairs(currentAvailable.filter(s => !assignedSpotIds.has(s.id)));
+      let bestPair: ParkingSpot[] | null = null;
+
+      // Se já temos 1 vaga do grupo, buscar adjacente para formar dupla
+      if (linkedPair.length === 1) {
+        const singleSpot = linkedPair[0];
         const adjacentOnFloor = currentAvailable.filter(s =>
-          s.id !== singleGroupSpot.id && s.floor === singleGroupSpot.floor
+          !assignedSpotIds.has(s.id) && s.floor === singleSpot.floor
         ).sort((a, b) => a.number.localeCompare(b.number, 'pt-BR', { numeric: true }));
 
-        const numSingle = parseInt(singleGroupSpot.number.replace(/\D/g, ''));
+        const numSingle = parseInt(singleSpot.number.replace(/\D/g, ''));
         const adjacent = adjacentOnFloor.find(s => {
           const num = parseInt(s.number.replace(/\D/g, ''));
           return Math.abs(num - numSingle) <= 1;
         });
 
         if (adjacent) {
-          bestPair = [singleGroupSpot, adjacent];
-          pairFloor = singleGroupSpot.floor;
-          notes.push(`1 vaga do grupo + 1 adjacente (${pairFloor})`);
-        }
-      }
-    }
-
-    // PRIORIDADE 2: Dupla no andar preferido
-    if (!bestPair && participant.preferredFloors && participant.preferredFloors.length > 0) {
-      const pairOnPreferredFloor = linkedPairs.find(lp =>
-        participant.preferredFloors!.includes(lp.floor)
-      );
-      if (pairOnPreferredFloor) {
-        bestPair = pairOnPreferredFloor.pair;
-        pairFloor = pairOnPreferredFloor.floor;
-        notes.push(`Dupla no andar preferido (${pairFloor})`);
-      }
-    }
-
-    // PRIORIDADE 3: Qualquer dupla disponível
-    if (!bestPair && linkedPairs.length > 0) {
-      const randomIdx = Math.floor(Math.random() * linkedPairs.length);
-      bestPair = linkedPairs[randomIdx].pair;
-      pairFloor = linkedPairs[randomIdx].floor;
-      if (participant.preferredFloors?.length) {
-        notes.push(`Dupla fora do andar preferido → ${pairFloor}`);
-      }
-    }
-
-    if (bestPair) {
-      linkedPair = bestPair;
-      bestPair.forEach(s => {
-        assignedSpotIds.add(s.id);
-        allocatedSpots.push(s);
-      });
-    } else {
-      // Sem dupla disponível → pegar 2 vagas adjacentes no mesmo andar
-      notes.push('Sem dupla conjugada disponível');
-
-      // Tentar vagas adjacentes por andar
-      const spotsByFloor: Record<string, ParkingSpot[]> = {};
-      currentAvailable.forEach(s => {
-        if (!assignedSpotIds.has(s.id)) {
-          if (!spotsByFloor[s.floor]) spotsByFloor[s.floor] = [];
-          spotsByFloor[s.floor].push(s);
-        }
-      });
-
-      // Preferir andar preferido
-      const floorOrder = participant.preferredFloors?.length
-        ? [...participant.preferredFloors, ...Object.keys(spotsByFloor).filter(f => !participant.preferredFloors!.includes(f))]
-        : Object.keys(spotsByFloor);
-
-      let foundAdjacent = false;
-      for (const floor of floorOrder) {
-        if (!spotsByFloor[floor] || spotsByFloor[floor].length < 2) continue;
-        const adj = findAdjacentSpots(spotsByFloor[floor].filter(s => !assignedSpotIds.has(s.id)), floor);
-        if (adj) {
-          linkedPair = adj.pair;
-          adj.pair.forEach(s => {
-            assignedSpotIds.add(s.id);
-            allocatedSpots.push(s);
-          });
-          pairFloor = floor;
-          notes.push(`2 vagas lado a lado no ${floor}`);
-          foundAdjacent = true;
-          break;
+          assignedSpotIds.add(adjacent.id);
+          allocatedSpots.push(adjacent);
+          linkedPair.push(adjacent);
+          notes.push(`Adjacente ao grupo (${pairFloor})`);
         }
       }
 
-      if (!foundAdjacent) {
-        // Pegar quaisquer 2 vagas disponíveis
-        const remaining2 = currentAvailable.filter(s => !assignedSpotIds.has(s.id));
-        const shuffled = shuffleArray(remaining2);
-        const taken = shuffled.slice(0, Math.min(2, shuffled.length));
-        taken.forEach(s => {
-          assignedSpotIds.add(s.id);
-          allocatedSpots.push(s);
-          linkedPair.push(s);
-        });
-        if (taken.length > 0) {
-          pairFloor = taken[0].floor;
-          notes.push(`2 vagas individuais (sem adjacência disponível)`);
-        }
-      }
-    }
-
-    // Passo 2: Encontrar vaga separada (preferência mesmo andar da dupla)
-    if (allocatedSpots.length < spotsNeeded) {
-      const spotsRemaining = spotsNeeded - allocatedSpots.length;
-
-      for (let s = 0; s < spotsRemaining; s++) {
-        const stillAvailable = availableSpots.filter(sp => !assignedSpotIds.has(sp.id));
-
-        let spot: ParkingSpot | undefined;
-
-        // Prioridade: vaga do mesmo groupId do participante
-        if (participant.groupId) {
-          spot = stillAvailable.find(sp => sp.groupId === participant.groupId);
-        }
-
-        // Preferir mesmo andar da dupla
-        if (!spot) spot = stillAvailable.find(sp => sp.floor === pairFloor);
-
-        if (!spot && participant.preferredFloors?.length) {
-          spot = stillAvailable.find(sp => participant.preferredFloors!.includes(sp.floor));
-        }
-
-        if (!spot && stillAvailable.length > 0) {
-          const shuffled = shuffleArray(stillAvailable);
-          spot = shuffled[0];
-          if (pairFloor && spot.floor !== pairFloor) {
-            notes.push(`Vaga separada em outro andar (${spot.floor})`);
+      // Se ainda não temos dupla completa, buscar normalmente
+      if (allocatedSpots.length < 2) {
+        // PRIORIDADE 2: Dupla no andar preferido
+        if (participant.preferredFloors && participant.preferredFloors.length > 0) {
+          const pairOnPreferredFloor = linkedPairs.find(lp =>
+            participant.preferredFloors!.includes(lp.floor)
+          );
+          if (pairOnPreferredFloor) {
+            bestPair = pairOnPreferredFloor.pair;
+            pairFloor = pairOnPreferredFloor.floor;
+            notes.push(`Dupla no andar preferido (${pairFloor})`);
           }
         }
 
-        if (spot) {
-          assignedSpotIds.add(spot.id);
-          allocatedSpots.push(spot);
-          if (s === 0) separateSpot = spot;
+        // PRIORIDADE 3: Qualquer dupla disponível
+        if (!bestPair && linkedPairs.length > 0) {
+          const randomIdx = Math.floor(Math.random() * linkedPairs.length);
+          bestPair = linkedPairs[randomIdx].pair;
+          pairFloor = linkedPairs[randomIdx].floor;
+          if (participant.preferredFloors?.length) {
+            notes.push(`Dupla fora do andar preferido → ${pairFloor}`);
+          }
+        }
+
+        if (bestPair) {
+          linkedPair = bestPair;
+          bestPair.forEach(s => {
+            assignedSpotIds.add(s.id);
+            allocatedSpots.push(s);
+          });
+        } else {
+          // Sem dupla disponível → pegar 2 vagas adjacentes no mesmo andar
+          notes.push('Sem dupla conjugada disponível');
+
+          const spotsByFloor: Record<string, ParkingSpot[]> = {};
+          currentAvailable.filter(s => !assignedSpotIds.has(s.id)).forEach(s => {
+            if (!spotsByFloor[s.floor]) spotsByFloor[s.floor] = [];
+            spotsByFloor[s.floor].push(s);
+          });
+
+          const floorOrder = participant.preferredFloors?.length
+            ? [...participant.preferredFloors, ...Object.keys(spotsByFloor).filter(f => !participant.preferredFloors!.includes(f))]
+            : Object.keys(spotsByFloor);
+
+          let foundAdjacent = false;
+          for (const floor of floorOrder) {
+            if (!spotsByFloor[floor] || spotsByFloor[floor].length < 2) continue;
+            const adj = findAdjacentSpots(spotsByFloor[floor].filter(s => !assignedSpotIds.has(s.id)), floor);
+            if (adj) {
+              linkedPair = adj.pair;
+              adj.pair.forEach(s => {
+                assignedSpotIds.add(s.id);
+                allocatedSpots.push(s);
+              });
+              pairFloor = floor;
+              notes.push(`2 vagas lado a lado no ${floor}`);
+              foundAdjacent = true;
+              break;
+            }
+          }
+
+          if (!foundAdjacent) {
+            const remaining2 = currentAvailable.filter(s => !assignedSpotIds.has(s.id));
+            const shuffled = shuffleArray(remaining2);
+            const taken = shuffled.slice(0, Math.min(2 - allocatedSpots.length, shuffled.length));
+            taken.forEach(s => {
+              assignedSpotIds.add(s.id);
+              allocatedSpots.push(s);
+              linkedPair.push(s);
+            });
+            if (taken.length > 0) {
+              pairFloor = taken[0].floor;
+              notes.push(`2 vagas individuais (sem adjacência disponível)`);
+            }
+          }
         }
       }
-    }
+
+      // Passo 2: Encontrar vaga(s) restante(s)
+      if (allocatedSpots.length < spotsNeeded) {
+        const spotsRemaining = spotsNeeded - allocatedSpots.length;
+
+        for (let s = 0; s < spotsRemaining; s++) {
+          const stillAvailable = availableSpots.filter(sp => !assignedSpotIds.has(sp.id));
+
+          let spot: ParkingSpot | undefined;
+
+          // Prioridade: vaga do mesmo groupId do participante
+          if (participant.groupId) {
+            spot = stillAvailable.find(sp => sp.groupId === participant.groupId);
+          }
+
+          // Preferir mesmo andar da dupla
+          if (!spot) spot = stillAvailable.find(sp => sp.floor === pairFloor);
+
+          if (!spot && participant.preferredFloors?.length) {
+            spot = stillAvailable.find(sp => participant.preferredFloors!.includes(sp.floor));
+          }
+
+          if (!spot && stillAvailable.length > 0) {
+            const shuffled = shuffleArray(stillAvailable);
+            spot = shuffled[0];
+            if (pairFloor && spot.floor !== pairFloor) {
+              notes.push(`Vaga separada em outro andar (${spot.floor})`);
+            }
+          }
+
+          if (spot) {
+            assignedSpotIds.add(spot.id);
+            allocatedSpots.push(spot);
+            if (s === 0) separateSpot = spot;
+          }
+        }
+      }
+    } // end !fullGroupAllocated
 
     const priority: Priority = participant.hasSpecialNeeds ? 'special-needs' :
       participant.isElderly ? 'elderly' : 'normal';
