@@ -35,14 +35,14 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [markerSize, setMarkerSize] = useState(36);
+  const [markerSizes, setMarkerSizes] = useState<Record<string, number>>({});
 
-  // Load marker size
+  // Load marker sizes per floor
   useEffect(() => {
     if (!buildingId) return;
-    const sizeRef = ref(database, `buildings/${buildingId}/markerSize`);
-    const unsub = onValue(sizeRef, (snapshot) => {
-      if (snapshot.exists()) setMarkerSize(snapshot.val());
+    const sizesRef = ref(database, `buildings/${buildingId}/markerSizes`);
+    const unsub = onValue(sizesRef, (snapshot) => {
+      if (snapshot.exists()) setMarkerSizes(snapshot.val());
     });
     return () => unsub();
   }, [buildingId]);
@@ -143,6 +143,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
 
   const currentPlan = floorPlans[selectedFloor];
   const availableFloors = Object.keys(floorPlans);
+  const markerSize = markerSizes[selectedFloor] ?? 36;
 
   const getSpotStatus = (spotId: string) => {
     const spot = parkingSpots.find((s: any) => s.id === spotId);

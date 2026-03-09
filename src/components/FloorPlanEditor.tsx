@@ -123,7 +123,8 @@ export const FloorPlanEditor: React.FC = () => {
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [markerSize, setMarkerSize] = useState(36);
+  const [markerSizes, setMarkerSizes] = useState<Record<string, number>>({});
+  const markerSize = markerSizes[selectedFloor] ?? 36;
   const [unplacedFilter, setUnplacedFilter] = useState('');
   const [highlightedSpotId, setHighlightedSpotId] = useState<string | null>(null);
   const [placedFilter, setPlacedFilter] = useState('');
@@ -168,13 +169,13 @@ export const FloorPlanEditor: React.FC = () => {
     return () => unsub();
   }, [selectedBuilding?.id]);
 
-  // Load marker size from Firebase
+  // Load marker sizes per floor from Firebase
   useEffect(() => {
     if (!selectedBuilding?.id) return;
-    const sizeRef = dbRef(database, `buildings/${selectedBuilding.id}/markerSize`);
-    const unsub = onValue(sizeRef, (snapshot) => {
+    const sizesRef = dbRef(database, `buildings/${selectedBuilding.id}/markerSizes`);
+    const unsub = onValue(sizesRef, (snapshot) => {
       if (snapshot.exists()) {
-        setMarkerSize(snapshot.val());
+        setMarkerSizes(snapshot.val());
       }
     });
     return () => unsub();
@@ -294,14 +295,14 @@ export const FloorPlanEditor: React.FC = () => {
     setPanOffset({ x: 0, y: 0 });
   }, []);
 
-  // Save marker size to Firebase
+  // Save marker size per floor to Firebase
   const handleMarkerSizeChange = useCallback((value: number[]) => {
     const size = value[0];
-    setMarkerSize(size);
+    setMarkerSizes(prev => ({ ...prev, [selectedFloor]: size }));
     if (selectedBuilding?.id) {
-      set(dbRef(database, `buildings/${selectedBuilding.id}/markerSize`), size);
+      set(dbRef(database, `buildings/${selectedBuilding.id}/markerSizes/${selectedFloor}`), size);
     }
-  }, [selectedBuilding?.id]);
+  }, [selectedBuilding?.id, selectedFloor]);
 
   const handlePlaceSpot = (spot: ParkingSpot) => {
     if (!currentPlan?.imageUrl) {

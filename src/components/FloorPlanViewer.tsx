@@ -26,7 +26,7 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [parkingSpots, setParkingSpots] = useState<any[]>([]);
-  const [markerSize, setMarkerSize] = useState(36);
+  const [markerSizes, setMarkerSizes] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!buildingId) return;
@@ -57,9 +57,9 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
 
   useEffect(() => {
     if (!buildingId) return;
-    const sizeRef = ref(database, `buildings/${buildingId}/markerSize`);
-    const unsub = onValue(sizeRef, (snapshot) => {
-      if (snapshot.exists()) setMarkerSize(snapshot.val());
+    const sizesRef = ref(database, `buildings/${buildingId}/markerSizes`);
+    const unsub = onValue(sizesRef, (snapshot) => {
+      if (snapshot.exists()) setMarkerSizes(snapshot.val());
     });
     return () => unsub();
   }, [buildingId]);
@@ -128,6 +128,7 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
     id => getSpotStatus(id) === 'chosen'
   ).length;
   const totalMarkers = Object.keys(currentPlan?.markers || {}).length;
+  const markerSize = markerSizes[selectedFloor] ?? 36;
   const fontSize = Math.max(7, Math.round(markerSize * 0.3));
 
   return (
