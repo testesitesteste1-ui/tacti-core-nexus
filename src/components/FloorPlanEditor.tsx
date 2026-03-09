@@ -123,7 +123,8 @@ export const FloorPlanEditor: React.FC = () => {
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [markerSize, setMarkerSize] = useState(36);
+  const [markerSizes, setMarkerSizes] = useState<Record<string, number>>({});
+  const markerSize = markerSizes[selectedFloor] ?? 36;
   const [unplacedFilter, setUnplacedFilter] = useState('');
   const [highlightedSpotId, setHighlightedSpotId] = useState<string | null>(null);
   const [placedFilter, setPlacedFilter] = useState('');
