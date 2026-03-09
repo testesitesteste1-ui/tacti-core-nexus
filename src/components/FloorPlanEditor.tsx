@@ -128,6 +128,7 @@ export const FloorPlanEditor: React.FC = () => {
   const [unplacedFilter, setUnplacedFilter] = useState('');
   const [highlightedSpotId, setHighlightedSpotId] = useState<string | null>(null);
   const [placedFilter, setPlacedFilter] = useState('');
+  const [panMode, setPanMode] = useState(false); // When true in edit mode, left-click pans instead of moving markers
 
   // Floors that have spots assigned
   const floorsWithSpots: string[] = Array.from(new Set(buildingSpots.map(s => s.floor)));
