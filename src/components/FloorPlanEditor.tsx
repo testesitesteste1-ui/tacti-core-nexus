@@ -128,6 +128,7 @@ export const FloorPlanEditor: React.FC = () => {
   const [unplacedFilter, setUnplacedFilter] = useState('');
   const [highlightedSpotId, setHighlightedSpotId] = useState<string | null>(null);
   const [placedFilter, setPlacedFilter] = useState('');
+  const [panMode, setPanMode] = useState(false); // When true in edit mode, left-click pans instead of moving markers
 
   // Floors that have spots assigned
   const floorsWithSpots: string[] = Array.from(new Set(buildingSpots.map(s => s.floor)));
@@ -265,17 +266,16 @@ export const FloorPlanEditor: React.FC = () => {
     setZoom(z => Math.max(0.3, Math.min(5, z + delta)));
   }, []);
 
-  // Pan handlers (right-click or middle-click drag, or Space+drag)
+  // Pan handlers
   const handleMapPointerDown = useCallback((e: React.PointerEvent) => {
-    // If dragging a spot marker, don't pan
     if (draggingSpotId) return;
-    // Pan with middle click, right click, or any click when not editing
-    if (e.button === 1 || e.button === 2 || !isEditing) {
+    // Pan with middle click, right click, any click when not editing, OR left click in panMode
+    if (e.button === 1 || e.button === 2 || !isEditing || panMode) {
       e.preventDefault();
       setIsPanning(true);
       setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
     }
-  }, [draggingSpotId, isEditing, panOffset]);
+  }, [draggingSpotId, isEditing, panOffset, panMode]);
 
   const handleMapPointerMovePan = useCallback((e: React.PointerEvent) => {
     if (isPanning) {
@@ -549,9 +549,27 @@ export const FloorPlanEditor: React.FC = () => {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleResetView} title="Resetar visão">
                         <RotateCcw className="h-4 w-4" />
                       </Button>
-                      <div className="h-5 w-px bg-border mx-1" />
-                      <Hand className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Scroll = zoom • Arraste = mover</span>
+                      {isEditing && (
+                        <>
+                          <div className="h-5 w-px bg-border mx-1" />
+                          <Button
+                            variant={panMode ? 'default' : 'outline'}
+                            size="sm"
+                            className="h-8 gap-1.5 text-xs"
+                            onClick={() => setPanMode(p => !p)}
+                          >
+                            <Hand className="h-3.5 w-3.5" />
+                            {panMode ? 'Mover Mapa' : 'Mover Mapa'}
+                          </Button>
+                        </>
+                      )}
+                      {!isEditing && (
+                        <>
+                          <div className="h-5 w-px bg-border mx-1" />
+                          <Hand className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Arraste = mover</span>
+                        </>
+                      )}
                     </div>
 
                     {isEditing && (
@@ -603,11 +621,12 @@ export const FloorPlanEditor: React.FC = () => {
               {currentPlan?.imageUrl ? (
                 <div
                   ref={mapWrapperRef}
-                  className={cn(
-                    "overflow-hidden max-h-[70vh] bg-muted/30",
-                    isPanning && "cursor-grabbing",
-                    !isPanning && !isEditing && "cursor-grab",
-                  )}
+                   className={cn(
+                     "overflow-hidden max-h-[70vh] bg-muted/30",
+                     isPanning && "cursor-grabbing",
+                     !isPanning && panMode && "cursor-grab",
+                     !isPanning && !panMode && !isEditing && "cursor-grab",
+                   )}
                   onWheel={handleWheel}
                   onPointerDown={handleMapPointerDown}
                   onPointerMove={(e) => {
@@ -648,7 +667,7 @@ export const FloorPlanEditor: React.FC = () => {
                           key={spotId}
                           spot={spot}
                           position={pos}
-                          isEditing={isEditing}
+                          isEditing={isEditing && !panMode}
                           isDragging={draggingSpotId === spotId}
                           isHighlighted={highlightedSpotId === spotId}
                           markerSize={markerSize}
