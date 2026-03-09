@@ -266,17 +266,16 @@ export const FloorPlanEditor: React.FC = () => {
     setZoom(z => Math.max(0.3, Math.min(5, z + delta)));
   }, []);
 
-  // Pan handlers (right-click or middle-click drag, or Space+drag)
+  // Pan handlers
   const handleMapPointerDown = useCallback((e: React.PointerEvent) => {
-    // If dragging a spot marker, don't pan
     if (draggingSpotId) return;
-    // Pan with middle click, right click, or any click when not editing
-    if (e.button === 1 || e.button === 2 || !isEditing) {
+    // Pan with middle click, right click, any click when not editing, OR left click in panMode
+    if (e.button === 1 || e.button === 2 || !isEditing || panMode) {
       e.preventDefault();
       setIsPanning(true);
       setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
     }
-  }, [draggingSpotId, isEditing, panOffset]);
+  }, [draggingSpotId, isEditing, panOffset, panMode]);
 
   const handleMapPointerMovePan = useCallback((e: React.PointerEvent) => {
     if (isPanning) {
