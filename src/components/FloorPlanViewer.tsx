@@ -57,9 +57,9 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
 
   useEffect(() => {
     if (!buildingId) return;
-    const sizeRef = ref(database, `buildings/${buildingId}/markerSize`);
-    const unsub = onValue(sizeRef, (snapshot) => {
-      if (snapshot.exists()) setMarkerSize(snapshot.val());
+    const sizesRef = ref(database, `buildings/${buildingId}/markerSizes`);
+    const unsub = onValue(sizesRef, (snapshot) => {
+      if (snapshot.exists()) setMarkerSizes(snapshot.val());
     });
     return () => unsub();
   }, [buildingId]);
