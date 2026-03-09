@@ -294,14 +294,14 @@ export const FloorPlanEditor: React.FC = () => {
     setPanOffset({ x: 0, y: 0 });
   }, []);
 
-  // Save marker size to Firebase
+  // Save marker size per floor to Firebase
   const handleMarkerSizeChange = useCallback((value: number[]) => {
     const size = value[0];
-    setMarkerSize(size);
+    setMarkerSizes(prev => ({ ...prev, [selectedFloor]: size }));
     if (selectedBuilding?.id) {
-      set(dbRef(database, `buildings/${selectedBuilding.id}/markerSize`), size);
+      set(dbRef(database, `buildings/${selectedBuilding.id}/markerSizes/${selectedFloor}`), size);
     }
-  }, [selectedBuilding?.id]);
+  }, [selectedBuilding?.id, selectedFloor]);
 
   const handlePlaceSpot = (spot: ParkingSpot) => {
     if (!currentPlan?.imageUrl) {

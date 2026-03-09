@@ -128,6 +128,7 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
     id => getSpotStatus(id) === 'chosen'
   ).length;
   const totalMarkers = Object.keys(currentPlan?.markers || {}).length;
+  const markerSize = markerSizes[selectedFloor] ?? 36;
   const fontSize = Math.max(7, Math.round(markerSize * 0.3));
 
   return (
