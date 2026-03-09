@@ -143,6 +143,7 @@ export const LiveFloorPlanMiniMap: React.FC<Props> = ({
 
   const currentPlan = floorPlans[selectedFloor];
   const availableFloors = Object.keys(floorPlans);
+  const markerSize = markerSizes[selectedFloor] ?? 36;
 
   const getSpotStatus = (spotId: string) => {
     const spot = parkingSpots.find((s: any) => s.id === spotId);
