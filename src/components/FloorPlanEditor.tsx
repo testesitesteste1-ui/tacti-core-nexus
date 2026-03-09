@@ -667,7 +667,7 @@ export const FloorPlanEditor: React.FC = () => {
                           key={spotId}
                           spot={spot}
                           position={pos}
-                          isEditing={isEditing}
+                          isEditing={isEditing && !panMode}
                           isDragging={draggingSpotId === spotId}
                           isHighlighted={highlightedSpotId === spotId}
                           markerSize={markerSize}
