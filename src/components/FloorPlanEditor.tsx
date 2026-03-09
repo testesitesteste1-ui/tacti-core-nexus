@@ -549,9 +549,27 @@ export const FloorPlanEditor: React.FC = () => {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleResetView} title="Resetar visão">
                         <RotateCcw className="h-4 w-4" />
                       </Button>
-                      <div className="h-5 w-px bg-border mx-1" />
-                      <Hand className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Scroll = zoom • Arraste = mover</span>
+                      {isEditing && (
+                        <>
+                          <div className="h-5 w-px bg-border mx-1" />
+                          <Button
+                            variant={panMode ? 'default' : 'outline'}
+                            size="sm"
+                            className="h-8 gap-1.5 text-xs"
+                            onClick={() => setPanMode(p => !p)}
+                          >
+                            <Hand className="h-3.5 w-3.5" />
+                            {panMode ? 'Mover Mapa' : 'Mover Mapa'}
+                          </Button>
+                        </>
+                      )}
+                      {!isEditing && (
+                        <>
+                          <div className="h-5 w-px bg-border mx-1" />
+                          <Hand className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Arraste = mover</span>
+                        </>
+                      )}
                     </div>
 
                     {isEditing && (
