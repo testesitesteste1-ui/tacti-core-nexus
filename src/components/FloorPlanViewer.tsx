@@ -26,7 +26,7 @@ export const FloorPlanViewer: React.FC<Props> = ({ buildingId, liveData }) => {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [parkingSpots, setParkingSpots] = useState<any[]>([]);
-  const [markerSize, setMarkerSize] = useState(36);
+  const [markerSizes, setMarkerSizes] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!buildingId) return;
