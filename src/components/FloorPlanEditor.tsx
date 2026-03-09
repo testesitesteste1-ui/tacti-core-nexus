@@ -621,11 +621,12 @@ export const FloorPlanEditor: React.FC = () => {
               {currentPlan?.imageUrl ? (
                 <div
                   ref={mapWrapperRef}
-                  className={cn(
-                    "overflow-hidden max-h-[70vh] bg-muted/30",
-                    isPanning && "cursor-grabbing",
-                    !isPanning && !isEditing && "cursor-grab",
-                  )}
+                   className={cn(
+                     "overflow-hidden max-h-[70vh] bg-muted/30",
+                     isPanning && "cursor-grabbing",
+                     !isPanning && panMode && "cursor-grab",
+                     !isPanning && !panMode && !isEditing && "cursor-grab",
+                   )}
                   onWheel={handleWheel}
                   onPointerDown={handleMapPointerDown}
                   onPointerMove={(e) => {
