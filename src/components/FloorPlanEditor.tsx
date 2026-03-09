@@ -168,13 +168,13 @@ export const FloorPlanEditor: React.FC = () => {
     return () => unsub();
   }, [selectedBuilding?.id]);
 
-  // Load marker size from Firebase
+  // Load marker sizes per floor from Firebase
   useEffect(() => {
     if (!selectedBuilding?.id) return;
-    const sizeRef = dbRef(database, `buildings/${selectedBuilding.id}/markerSize`);
-    const unsub = onValue(sizeRef, (snapshot) => {
+    const sizesRef = dbRef(database, `buildings/${selectedBuilding.id}/markerSizes`);
+    const unsub = onValue(sizesRef, (snapshot) => {
       if (snapshot.exists()) {
-        setMarkerSize(snapshot.val());
+        setMarkerSizes(snapshot.val());
       }
     });
     return () => unsub();
